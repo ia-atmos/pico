@@ -69,17 +69,9 @@ do {
     pico.output.draw.text("hg - gh", ['!', x=10, y=10, w=0, h=10, anchor='NW'])
     pico.check("font-03")
 
-    ;; in use by the pencil
-    val ok, err = catch true { pico.font.free(f) }
-    assert(!ok)
-    print(err)
-
     pico.set.pencil [ font=:default ]
-    pico.font.free(f)
-    val ok2, err2 = catch true { pico.set.pencil [ font=f ] }
-    assert(!ok2)
-    print(err2)
-}
+}                                   ;; the font goes with its last reference
+assert(pico.font.free == nil)       ;; no explicit free
 
 ;; errors
 do {

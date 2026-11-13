@@ -122,8 +122,4 @@ do {
     pico.set.layer(pico.layer.world())
 }
 
-pico.layer.free(mybuf)
-pico.layer.free(reuse)
-pico.layer.free(ui)
-pico.layer.free(background)
 pico.close()

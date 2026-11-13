@@ -61,7 +61,6 @@ do {
     fill(child, 'red')
     val both = redraw("1-both")
     assert(both != empty)
-    fails("children", \{ pico.layer.free(parent) })
     set parent = nil                ;; still alive: the child depends on it
     assert(redraw("1-drop") == both)
     fill(child, 'red')              ;; the child is still usable
@@ -93,7 +92,6 @@ do {
     do {
         val l = pico.layer.empty [ dim=['!',w=8,h=8] ]
         pico.set.layer(l)
-        fails("current layer", \{ pico.layer.free(l) })
         fails("onto itself", \{ pico.output.draw.layer(l) })
     }                               ;; still alive: it is the current layer
     val cur = pico.get.layer()
@@ -103,9 +101,6 @@ do {
     assert(pico.get.scene().dim.w == 8)
     val old = pico.set.layer(world)
     assert(old == cur)
-    pico.layer.free(old)
-    fails("invalid layer", \{ pico.set.layer(old) })
-    fails("invalid layer", \{ pico.layer.free(cur) })
     assert(pico.get.layer() == world)
 }
 
@@ -128,7 +123,6 @@ do {
     var src = pico.layer.empty [ dim=['!',w=8,h=8] ]
     fill(src, 'green')
     val sub = pico.layer.sub [ sup=src, crop=['!',x=0,y=0,w=4,h=4,anchor='NW'] ]
-    fails("sub-layers", \{ pico.layer.free(src) })
     fails("sub-layer of a sub-layer", \{
         pico.layer.sub [ sup=sub, crop=['!',x=0,y=0,w=2,h=2,anchor='NW'] ]
     })
@@ -189,14 +183,17 @@ do {
     val s = pico.sound.load("../c/res/start.wav")
     pico.output.sound(s)
     pico.output.sound("../c/res/start.wav")
-    pico.sound.free(s)
-    fails("invalid sound", \{ pico.output.sound(s) })
+    do {
+        pin p = pico.sound.load("../c/res/start.wav")
+        pico.output.sound(p)
+    }                               ;; released with its block
     fails("expected sound", \{ pico.output.sound(world) })
     fails("expected layer", \{ pico.set.layer(pico.font.load("../c/res/tiny.ttf")) })
 }
 
 print("8. wrong arguments")
-fails("cannot free the world", \{ pico.layer.free(world) })
+;; no explicit free: the last reference or the end of a `pin` block
+assert(pico.layer.free==nil && pico.font.free==nil && pico.sound.free==nil)
 fails("expected layer",        \{ pico.set.layer(nil) })
 fails("expected layer",        \{ pico.set.layer("world") })
 fails("expected rect table",   \{ pico.output.draw.rect(10) })
@@ -228,7 +225,7 @@ val ksub  = pico.layer.sub [ sup=kept, crop=['!',x=0,y=0,w=4,h=4,anchor='NW'] ]
 pico.set.layer(kept)
 pico.close()
 fails("pico is not open", \{ pico.set.layer(kept) })
-fails("pico is not open", \{ pico.layer.free(kept) })
+fails("pico is not open", \{ pico.output.draw.layer(kept) })
 fails("pico is not open", \{ pico.get.layer() })
 
 print("10. open again: the values from before are invalid")
@@ -237,10 +234,8 @@ assert(pico.get.window().title == "Life")
 fails("invalid layer", \{ pico.set.layer(kept) })
 fails("invalid layer", \{ pico.set.layer(world) })
 fails("invalid layer", \{ pico.output.draw.layer(ksub) })
-fails("invalid layer", \{ pico.layer.free(kept) })
 fails("invalid layer", \{ pico.layer.empty [ up=kept, dim=['!',w=1,h=1] ] })
 fails("invalid font",  \{ pico.set.pencil [ font=kfont ] })
-fails("invalid font",  \{ pico.font.free(kfont) })
 fails("invalid sound", \{ pico.output.sound(ksnd) })
 set world = pico.layer.world()
 assert(pico.get.layer() == world)

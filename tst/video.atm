@@ -95,5 +95,4 @@ do {
     print(err)
 }
 
-pico.layer.free(vid)
 pico.close()

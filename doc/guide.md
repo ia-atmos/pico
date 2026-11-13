@@ -973,13 +973,14 @@ memory management: **a resource is released when its value is no longer
 referenced**.
 There are no explicit scopes to open and close.
 
-In more detail, a resource is released in one of three ways:
+In more detail, a resource is released in one of two ways:
 
 1. With its last reference, when no variable or table holds its value.
 2. With the block in which it is pinned, if it is declared with `pin` instead
    of `val`.
-3. With an explicit call to `pico.layer.free(l)`, `pico.font.free(f)`, or
-   `pico.sound.free(s)`, after which any use of the value raises an error.
+
+There is no explicit `free`: to release a resource earlier, we drop its value
+(`set l = nil`) or declare it in a block that terminates.
 
 What a resource depends on outlives it:
     the parent of a layer (`up`),
@@ -988,7 +989,6 @@ What a resource depends on outlives it:
     the font of a pencil.
 If such a value is dropped, or pinned in a block that terminates first, its
 release is postponed until nothing depends on it.
-For the same reason, the explicit `free` of a resource in use raises an error.
 
 A `pin` requires extra care.
 Like any pinned value in Atmos, a pinned resource cannot be stored in a table,

@@ -46,17 +46,18 @@
 ;;      val s = pico.sound.load("x.wav")
 ;;
 ;; A resource lives as long as its value is referenced: it is released with
-;; its last reference, with its `pin` block, or with `pico.layer.free(l)`,
-;; `pico.font.free(f)`, `pico.sound.free(s)`.
+;; its last reference, or with its `pin` block. There is no explicit `free`:
+;; to release a resource, drop its value (`set l = nil`) or declare it in a
+;; block that ends.
 ;; Therefore, a layer attached to a parent (`up=`) must be kept somewhere: if
-;; its value is dropped, the layer is freed and disappears from the screen.
+;; its value is dropped, the layer is released and disappears from the screen.
 ;;
 ;; What a resource depends on outlives it: the parent of a layer (`up`), the
 ;; source of a sub-layer (`sup`), the current layer (`pico.set.layer`), and
 ;; the font of a pencil. If such a value is dropped, or pinned in a block that
 ;; ends first, its release is postponed until nothing depends on it (and
 ;; `pico.get.layer()` or `pico.get.pencil().font` evaluate to `nil` if the
-;; value is gone). The explicit `free` of a resource in use raises an error.
+;; value is gone).
 ;;
 ;; A plain `val` is enough to hold a resource. A resource in a `pin` cannot
 ;; go into a table argument (`[up=l]`) unless the table is also pinned, as for
@@ -70,7 +71,7 @@
 ;; invalid afterwards, even after a new `pico.open()`, and any use raises an
 ;; error.
 ;; `pico.layer.world()` and `pico.layer.window()` evaluate to the two root
-;; layers, always as the same shared values, which cannot be pinned or freed.
+;; layers, always as the same shared values, which cannot be pinned.
 ;;
 ;; IMPERATIVE PROGRAMS call `pico.open()`, draw, wait for input with
 ;; `pico.input.*`, and call `pico.close()` (or leave it to the end of the
@@ -626,7 +627,7 @@ static int pa_lay (AVal v, PA_Lay** out) {
     }
     PA_Lay* s = a_nat_ptr(v);
     if (s==NULL || s->gen!=PA.gen) {
-        a_error("%s : invalid layer : it was freed or pico was closed", PA_FN);
+        a_error("%s : invalid layer : it was released or pico was closed", PA_FN);
         return 0;
     }
     *out = s;
@@ -655,7 +656,7 @@ static int pa_res (AVal v, const char* kind, PA_Res** out) {
     }
     PA_Res* r = a_nat_ptr(v);
     if (r==NULL || r->gen!=PA.gen) {
-        a_error("%s : invalid %s : it was freed or pico was closed",
+        a_error("%s : invalid %s : it was released or pico was closed",
             PA_FN, name);
         return 0;
     }
@@ -1909,25 +1910,6 @@ static AStatus l_layer_video (AFunc* self, int argc, AVal* argv) {
     return pa_ctor_end(&c, pico_layer_video(c.xup,path), PA_VIDEO, NULL);
 }
 
-// pico.layer.free(layer)
-static AStatus l_layer_free (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.free")
-    PA_Lay* s;
-    PA_TRY(pa_lay(PA_ARG(0), &s));
-    if (s->kind == PA_ROOT) {
-        return a_error("%s : cannot free the world or window layer", PA_FN);
-    }
-    if (s == PA.cur) {
-        return a_error("%s : cannot free the current layer", PA_FN);
-    }
-    if (s->rc > 1) {
-        return a_error("%s : cannot free a layer with children or sub-layers",
-            PA_FN);
-    }
-    a_nat_close(argv[0]);
-    return A_OK;
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 // FONT / SOUND
 ///////////////////////////////////////////////////////////////////////////////
@@ -1941,33 +1923,12 @@ static AStatus l_font_load (AFunc* self, int argc, AVal* argv) {
     return A_OK;
 }
 
-// pico.font.free(font)
-static AStatus l_font_free (AFunc* self, int argc, AVal* argv) {
-    PA_IN("font.free")
-    PA_Res* r;
-    PA_TRY(pa_res(PA_ARG(0), PA_KIND_FNT, &r));
-    if (r->rc > 1) {
-        return a_error("%s : cannot free a font in use by a pencil", PA_FN);
-    }
-    a_nat_close(argv[0]);
-    return A_OK;
-}
-
 // pico.sound.load(path)
 static AStatus l_sound_load (AFunc* self, int argc, AVal* argv) {
     PA_IN("sound.load")
     const char* path;
     PA_TRY(pa_str(PA_ARG(0),0,&path) && pa_file(path));
     a_push(pa_res_new(pico_sound_load(path), 0));
-    return A_OK;
-}
-
-// pico.sound.free(sound)
-static AStatus l_sound_free (AFunc* self, int argc, AVal* argv) {
-    PA_IN("sound.free")
-    PA_Res* r;
-    PA_TRY(pa_res(PA_ARG(0), PA_KIND_SND, &r));
-    a_nat_close(argv[0]);
     return A_OK;
 }
 
@@ -2600,17 +2561,14 @@ val pico = [
         sub        = `:value a_func(l_layer_sub,        0)`,  ;; [up=, sup=, crop=, target=]
         text       = `:value a_func(l_layer_text,       0)`,  ;; [up=, dim=, text=, target=]
         video      = `:value a_func(l_layer_video,      0)`,  ;; [up=, path=, target=]
-        free       = `:value a_func(l_layer_free,       0)`,  ;; (layer)
     ],
 
     font = [
         load = `:value a_func(l_font_load, 0)`,     ;; (path) -> font
-        free = `:value a_func(l_font_free, 0)`,     ;; (font)
     ],
 
     sound = [
         load = `:value a_func(l_sound_load, 0)`,    ;; (path) -> sound
-        free = `:value a_func(l_sound_free, 0)`,    ;; (sound)
     ],
 
     input = [

@@ -101,11 +101,12 @@ val s = pico.sound.load("x.wav")
 
 - A resource lives as long as its value is referenced.
   It is released
-    with its last reference,
-    with the block of its `pin`, or
-    with `pico.layer.free(l)`, `pico.font.free(f)`, `pico.sound.free(s)`.
+    with its last reference, or
+    with the block of its `pin`.
+  There is no explicit `free`: to release a resource, drop its value
+  (`set l = nil`) or declare it in a block that ends.
 - A layer attached to a parent (`up`) must be kept somewhere: if its value is
-  dropped, the layer is freed and disappears from the screen.
+  dropped, the layer is released and disappears from the screen.
 - What a resource depends on outlives it:
     the parent of a layer (`up`),
     the source of a sub-layer (`sup`),
@@ -115,8 +116,6 @@ val s = pico.sound.load("x.wav")
   is postponed until nothing depends on it.
   In this case, `pico.get.layer()` and `pico.get.pencil().font` evaluate to
   `nil` if the value is gone.
-- The explicit `free` of a resource in use raises an error.
-  After a `free`, any use of the value raises an error.
 - A plain `val` is enough to hold a resource.
   A resource in a `pin` cannot go into a table argument (`[up=l]`), unless the
   table is also pinned, as for any pinned value:
@@ -130,7 +129,7 @@ val s = pico.sound.load("x.wav")
 - `pico.close()` releases all resources: every value from before it is invalid
   afterwards, even after a new `pico.open()`, and any use raises an error.
 - `pico.layer.world()` and `pico.layer.window()` evaluate to the two root
-  layers, always as the same shared values, which cannot be pinned or freed.
+  layers, always as the same shared values, which cannot be pinned.
 - The resources that operations load from a path or content
   (`pico.output.draw.image`, `pico.output.draw.text`, `pico.output.draw.video`,
   `pico.output.sound(path)`, and `pico.set.pencil [font=path]`) are loaded
@@ -183,9 +182,8 @@ In alphabetical order:
     - **pico.font.load**: Loads a font from a TTF file.
         - `pico.font.load (path: string) -> Font`
         - The font is selected with `pico.set.pencil [font=f]`.
-    - **pico.font.free**: Releases a font.
-        - `pico.font.free (font: Font)`
-        - It is an error to free a font in use by a pencil.
+        - The font is released with its last reference (see
+          [Lifetimes](#lifetimes)).
 - **pico.get**: Getters for various properties and settings.
     - **pico.get.aids**: Gets the state of the automatic aids (see
       `pico.set.aids`).
@@ -418,10 +416,8 @@ In alphabetical order:
             target: Rect,       -- scene.target placement (default: fill parent)
         ] -> Layer
         ```
-    - **pico.layer.free**: Releases a layer.
-        - `pico.layer.free (layer: Layer)`
-        - It is an error to free the world, the window, the current layer,
-          or a layer with children or sub-layers.
+    - A layer is released with its last reference (see
+      [Lifetimes](#lifetimes)): there is no `pico.layer.free`.
 - **pico.open**: Initializes pico and opens its window.
     ```
     pico.open [
@@ -601,8 +597,8 @@ In alphabetical order:
     - **pico.sound.load**: Loads a sound from a file.
         - `pico.sound.load (path: string) -> Sound`
         - The sound is played with `pico.output.sound(s)`.
-    - **pico.sound.free**: Releases a sound.
-        - `pico.sound.free (sound: Sound)`
+        - The sound is released with its last reference (see
+          [Lifetimes](#lifetimes)).
 - **pico.vs**
     - Collision checks.
       Each side has the canonical shape `(Lx, vx)` where `Lx` is a direct
