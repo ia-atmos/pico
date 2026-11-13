@@ -9,6 +9,7 @@ val DROPS_PERSEC_MIN =  10
 val DROPS_PERSEC_MAX = 100
 val DROPS_DECAY_MS   = 2000
 val DROPS_LEN        = 2
+val DROPS_LEN0       = 5                ;; initial height
 val DROPS_LEN_MAX    = DROPS_LEN * 4
 
 ;; Broad phase of the collisions, on plain numbers:
@@ -24,6 +25,10 @@ val GRID = DROPS_LEN_MAX + NEAR
 ;; Helpers
 ;; --------------------------------------------------------
 
+;; A physics state holds, for each axis, the position of the
+;; center (pst) and the length (len): the rect goes from
+;; `pst - len/2` to `pst + len/2`.
+
 ;; Build a pico rect from physics state
 func phy_rect (p) {
     return ([
@@ -32,7 +37,6 @@ func phy_rect (p) {
         y = p.y.pst,
         w = p.x.len,
         h = p.y.len,
-        anchor = 'NW',
     ])
 }
 
@@ -45,12 +49,11 @@ func phy_near (p1, p2) {
     val x2 = p2.x
     val y1 = p1.y
     val y2 = p2.y
-    return (
-        ((x1.pst - x2.pst) <= (x2.len + NEAR)) &&
-        ((x2.pst - x1.pst) <= (x1.len + NEAR)) &&
-        ((y1.pst - y2.pst) <= (y2.len + NEAR)) &&
-        ((y2.pst - y1.pst) <= (y1.len + NEAR))
-    )
+    val dx = x1.pst - x2.pst
+    val dy = y1.pst - y2.pst
+    val w  = ((x1.len + x2.len) / 2) + NEAR
+    val h  = ((y1.len + y2.len) / 2) + NEAR
+    return ((dx <= w) && (-dx <= w) && (dy <= h) && (-dy <= h))
 }
 
 ;; Explosion velocity based on distance
@@ -58,14 +61,8 @@ func Boom_Vel (boom, other, G) {
     val radius    = 80
     val magnitude = 20
 
-    val c1 = [
-        x = boom.x.pst + (boom.x.len / 2),
-        y = boom.y.pst + (boom.y.len / 2),
-    ]
-    val c2 = [
-        x = other.x.pst + (other.x.len / 2),
-        y = other.y.pst + (other.y.len / 2),
-    ]
+    val c1 = [ x=boom.x.pst,  y=boom.y.pst  ]
+    val c2 = [ x=other.x.pst, y=other.y.pst ]
 
     val dist = math.sqrt(
         math.pow(c2.x - c1.x, 2) + math.pow(c2.y - c1.y, 2)
@@ -128,7 +125,6 @@ task Physics (state) {
                     y = state.y.pst,
                     w = state.x.len,
                     h = state.y.len,
-                    anchor = 'NW',
                 ]
             }
         }
@@ -139,7 +135,8 @@ task Physics (state) {
 ;; Wheel
 ;; --------------------------------------------------------
 
-;; 12 rotating dots around a point on the car.
+;; 12 rotating dots around a point on the car (an offset
+;; from its center).
 task Wheel (car_phy, offset, G) {
     val radius = 15
     val esp = (2 * G.PI) / 12
@@ -175,7 +172,6 @@ task Wheel (car_phy, offset, G) {
                             (i * esp) + pst)),
                     w = 5,
                     h = 5,
-                    anchor = 'NW',
                 ]
                 set i = i + 1
             }
@@ -192,18 +188,22 @@ task Wheel (car_phy, offset, G) {
 task Car (G) {
     val phy = [
         x = [
-            pst=320, len=60, vel=0, acc=0, drag=0.95
+            pst=350, len=60, vel=0, acc=0, drag=0.95
         ],
         y = [
-            pst=430, len=30, vel=0, acc=0, drag=0.95
+            pst=445, len=30, vel=0, acc=0, drag=0.95
         ],
         clr = [ r=0x3B, g=0xBC, b=0x48 ],
     ]
     set pub = [ phy=phy ]
 
     spawn Physics(phy)
-    spawn Wheel(phy, [ x=0, y=phy.y.len ], G)
-    spawn Wheel(phy, [ x=phy.x.len, y=phy.y.len ], G)
+    ;; a wheel turns around each bottom corner of the car,
+    ;; where the top-left corner of a dot of 5x5 would be
+    val wx = (phy.x.len / 2) - 2.5
+    val wy = (phy.y.len / 2) + 2.5
+    spawn Wheel(phy, [ x=-(wx), y=wy ], G)
+    spawn Wheel(phy, [ x=wx+5,  y=wy ], G)
 
     par {
         loop {
@@ -229,9 +229,12 @@ task Car (G) {
 ;; A raindrop: falls with gravity, bounces off ground,
 ;; stretches based on velocity, decays after bounce.
 task Drop (cloud_phy, G) {
-    val x0 = math.random(0, cloud_phy.x.len - 1)
-              + cloud_phy.x.pst
-    val y0 = cloud_phy.y.pst + cloud_phy.y.len
+    ;; below the cloud, from its left side
+    val x0 = (cloud_phy.x.pst - (cloud_phy.x.len / 2))
+              + math.random(0, cloud_phy.x.len - 1)
+              + (DROPS_LEN / 2)
+    val y0 = cloud_phy.y.pst + (cloud_phy.y.len / 2)
+              + (DROPS_LEN0 / 2)
 
     val phy = [
         x = [
@@ -243,7 +246,7 @@ task Drop (cloud_phy, G) {
         ],
         y = [
             pst  = y0,
-            len  = 5,
+            len  = DROPS_LEN0,
             vel  = 0,
             acc  = 500,
             drag = 0.98,
@@ -259,17 +262,19 @@ task Drop (cloud_phy, G) {
 
     par :any {
         loop on :clock {
+            ;; top-left corner
+            val x1 = phy.x.pst - (phy.x.len / 2)
+            var y1 = phy.y.pst - (phy.y.len / 2)
+
             ;; bounce off ground
-            if phy.y.pst > (G.H - DROPS_LEN) {
-                set phy.y.pst = G.H - DROPS_LEN
+            if y1 > (G.H - DROPS_LEN) {
+                set y1 = G.H - DROPS_LEN
                 set phy.y.vel = -(phy.y.vel * 2 / 3)
                 set pub.has_collided = true
             }
 
             ;; out of bounds
-            if (phy.x.pst > G.W)
-               || (phy.x.pst < 0)
-               || (phy.y.pst < 0) {
+            if (x1 > G.W) || (x1 < 0) || (y1 < 0) {
                 break
             }
 
@@ -296,6 +301,10 @@ task Drop (cloud_phy, G) {
             if phy.y.len > tmax {
                 set phy.y.len = tmax
             }
+
+            ;; stretches from the top-left corner
+            set phy.x.pst = x1 + (phy.x.len / 2)
+            set phy.y.pst = y1 + (phy.y.len / 2)
         }
     } with {
         ;; decay: wait for ground hit, then fade out
@@ -324,18 +333,23 @@ task Cloud (dps_, G) {
         set ty = 1
     }
 
-    val w = 100 + math.random(0, 99)
+    ;; `ty` is the top of the cloud, which starts with its
+    ;; left side at `-w`
+    val w  = 100 + math.random(0, 99)
+    val xl = 100 + math.random(0, 99)
+    val xv =  10 + math.random(0, 49)
+    val yl =  20 + math.random(0, 49)
     val phy = [
         x = [
-            pst  = -(w),
-            len  = 100 + math.random(0, 99),
-            vel  = 10 + math.random(0, 49),
+            pst  = -(w) + (xl / 2),
+            len  = xl,
+            vel  = xv,
             acc  = 0,
             drag = 0,
         ],
         y = [
-            pst  = ty,
-            len  = 20 + math.random(0, 49),
+            pst  = ty + (yl / 2),
+            len  = yl,
             vel  = 0,
             acc  = 0,
             drag = 0,
@@ -352,8 +366,8 @@ task Cloud (dps_, G) {
     par {
         ;; wrap around screen
         loop on :clock {
-            if phy.x.pst > G.W {
-                set phy.x.pst = -(phy.x.len)
+            if (phy.x.pst - (phy.x.len / 2)) > G.W {
+                set phy.x.pst = -(phy.x.len / 2)
             }
         }
     } with {
@@ -398,7 +412,7 @@ task Cloud (dps_, G) {
                 if ty < 1 {
                     set ty = 1
                 }
-                set phy.y.pst = ty
+                set phy.y.pst = ty + (phy.y.len / 2)
                 set phy.clr = [
                     r = 200 - ((200 * ty) / maxy),
                     g = (phy.clr.r * 0.95) // 1,
@@ -473,15 +487,14 @@ task Boom (x, G) {
     val radius = 80
     val phy = [
         x = [
-            pst  = x - radius,
+            pst  = x,
             len  = radius * 2,
             vel  = 0,
             acc  = 0,
             drag = 0,
         ],
         y = [
-            pst  = (G.H + (radius * 0.2) - radius)
-                   // 1,
+            pst  = (G.H + (radius * 0.2)) // 1,
             len  = radius * 2,
             vel  = 0,
             acc  = 0,
@@ -599,15 +612,17 @@ task Collisions (G) {
                               phy_rect(c2.pub.phy)) {
                         emit @c1 :go_blink
                         emit @c2 :go_blink
+                        ;; between the left of c1 and
+                        ;; the right of c2, and between
+                        ;; the two bottoms
+                        val p1 = c1.pub.phy
+                        val p2 = c2.pub.phy
                         val pos = [
-                            x = (c1.pub.phy.x.pst
-                                 + c2.pub.phy.x.pst
-                                 + c2.pub.phy.x.len)
+                            x = ((p1.x.pst - (p1.x.len / 2))
+                                 + (p2.x.pst + (p2.x.len / 2)))
                                 / 2,
-                            y = (c1.pub.phy.y.pst
-                                 + c1.pub.phy.y.len
-                                 + c2.pub.phy.y.pst
-                                 + c2.pub.phy.y.len)
+                            y = ((p1.y.pst + (p1.y.len / 2))
+                                 + (p2.y.pst + (p2.y.len / 2)))
                                 / 2,
                         ]
                         spawn @(G.lights) Light(
@@ -641,8 +656,9 @@ task Collisions (G) {
                 val car = G.car.pub.phy
 
                 ;; the drops of the frame, by index, with
-                ;; their rects as plain numbers, and the
-                ;; grid with the indexes in each cell
+                ;; their rects as plain numbers (centers
+                ;; and half lengths, with the slack), and
+                ;; the grid with the indexes in each cell
                 pin ds = []
                 val xs = []
                 val ys = []
@@ -655,8 +671,8 @@ task Collisions (G) {
                     set ds@i = d
                     set xs@i = p.x.pst
                     set ys@i = p.y.pst
-                    set ws@i = p.x.len + NEAR
-                    set hs@i = p.y.len + NEAR
+                    set ws@i = (p.x.len + NEAR) / 2
+                    set hs@i = (p.y.len + NEAR) / 2
                     val k = ((p.x.pst // GRID) * 4096)
                             + (p.y.pst // GRID)
                     val c = grid@k
@@ -683,10 +699,12 @@ task Collisions (G) {
                             val c = grid@((gx * 4096) + gy)
                             if c != nil {
                                 loop _,j in c {
-                                    if ((x1 - xs@j) <= ws@j)
-                                       && ((xs@j - x1) <= w1)
-                                       && ((y1 - ys@j) <= hs@j)
-                                       && ((ys@j - y1) <= h1)
+                                    val dx = x1 - xs@j
+                                    val dy = y1 - ys@j
+                                    val w  = w1 + ws@j
+                                    val h  = h1 + hs@j
+                                    if (dx <= w) && (-dx <= w)
+                                       && (dy <= h) && (-dy <= h)
                                        && (j != i) {
                                         val d2 = ds@j
                                         if pico.vs.rect.rect(
@@ -710,9 +728,11 @@ task Collisions (G) {
                        && pico.vs.rect.rect(
                               phy_rect(p1),
                               phy_rect(car)) {
-                        if p1.y.pst < car.y.pst {
+                        ;; above the top of the car?
+                        val top = car.y.pst - (car.y.len / 2)
+                        if (p1.y.pst - (p1.y.len / 2)) < top {
                             set p1.y.pst =
-                                car.y.pst - p1.y.len
+                                top - (p1.y.len / 2)
                             set p1.y.vel = -(p1.y.vel / 3)
                             set p1.x.vel = car.x.vel / 2
                             set d1.pub.has_collided = true

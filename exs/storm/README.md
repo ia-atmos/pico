@@ -29,6 +29,8 @@ ATMOS=/path/to/atmos ../../pico-atmos main.atm
 # Notes
 
 - The game is all in Atmos, with no C of its own.
+- The position of an object is its center, which is the default anchor
+  of pico.
 - The collisions between drops and between drops and the car are tested
   once per frame.
   The drops go into a grid (`GRID` in `ts.atm`), and each drop is only
