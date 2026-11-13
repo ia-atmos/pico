@@ -1,0 +1,60 @@
+include "../pico.atm"
+
+pico.open()
+
+pico.set.dim ['!', w=480, h=480]
+pico.set.effect [ grid=false ]
+
+;; Layer `map`: 20x15 cols/rows of 16x16 tiles -> 320x240 px texture.
+;; dim='#' (cells) with tile in px: D = 20*16 x 15*16 = 320x240.
+;; view.tile set at birth so '#'-mode works without pico.set.scene.
+print("layer map: 20x15 tiles of 16x16")
+val map = pico.layer.empty [ dim=['#', w=20, h=15], tile=['!', w=16, h=16] ]
+do {
+    val old = pico.set.layer(map)
+    pico.set.effect [ grid=true ]
+    pico.set.pencil [ color='red' ]
+    pico.output.draw.rect ['#', x=1, y=1, w=1, h=1, anchor='NW']
+    pico.set.pencil [ color='green' ]
+    pico.output.draw.rect ['#', x=6, y=4, w=4, h=2, anchor='NW']
+    pico.set.pencil [ color='blue' ]
+    pico.output.draw.rect ['#', x=20, y=15, w=1, h=1, anchor='NW']
+    pico.set.layer(old)
+}
+
+;; Test 1: draw layer `map` 1:1 on main
+do {
+    print("draw map 1:1")
+    pico.output.clear()
+    pico.output.draw.layer(map, ['!', x=0, y=0, w=320, h=240, anchor='NW'])
+    pico.check("layer-empty-tile-01")
+}
+
+;; Test 2: draw layer `map` scaled up
+do {
+    print("draw map scaled")
+    pico.output.clear()
+    pico.output.draw.layer(map, ['!', x=0, y=0, w=480, h=360, anchor='NW'])
+    pico.check("layer-empty-tile-02")
+}
+
+;; Layer `fx`: no tile arg -> dim is pixels, view.tile stays {0,0}
+print("layer fx: plain pixel layer (no tile)")
+val fx = pico.layer.empty [ dim=['!', w=64, h=64] ]
+do {
+    val old = pico.set.layer(fx)
+    pico.set.pencil [ color='yellow' ]
+    pico.output.draw.rect ['!', x=8, y=8, w=48, h=48, anchor='NW']
+    pico.set.layer(old)
+}
+
+;; Test 3: draw both layers
+do {
+    print("draw map + fx")
+    pico.output.clear()
+    pico.output.draw.layer(map, ['!', x=0,   y=0, w=320, h=240, anchor='NW'])
+    pico.output.draw.layer(fx,  ['!', x=340, y=0, w=128, h=128, anchor='NW'])
+    pico.check("layer-empty-tile-03")
+}
+
+pico.close()

@@ -1,0 +1,87 @@
+include "../pico.atm"
+
+val IMG = "../c/res/open.png"
+
+func round (v) {
+    if v>=0 => math.floor(v+0.5) => math.ceil(v-0.5)
+}
+
+pico.open()
+pico.set.window [ title="Image - Size - Crop" ]
+pico.set.effect [ color='white' ]
+
+;; pico.get.image
+do {
+    do {
+        val pct = ['%', h=0.24]
+        val dim = pico.get.image(pct, IMG)
+        assert(dim == pct)
+        assert(round(pct.w*100)==24 && round(pct.h*100)==24)
+    }
+    do {
+        val pct = ['%', w=0.48]
+        val dim = pico.get.image(pct, IMG)
+        assert(dim == pct)
+        assert(round(pct.w*100)==48 && round(pct.h*100)==48)
+    }
+    do {
+        val pct = ['%']
+        val dim = pico.get.image(pct, IMG)
+        assert(dim == pct)
+        assert(round(pct.w*100)==48 && round(pct.h*100)==48)
+    }
+
+;;;
+    local up = {'%', x=0, y=0, w=0.5, h=0.5, anchor='NW'}
+    local pct = {'%', w=nil, h=nil}
+    local abs = pico.get.image("../../res/open.png", pct, up)
+    assert(abs.w==96 and abs.h==96)
+    assert(round(pct.w*100)==96 and round(pct.h*100)==96)
+
+    local up = {'%', x=0, y=0, w=0.5, h=0.5, anchor='NW'}
+    local pct = pico.get.image("../../res/open.png", {'%', h=0.48}, up)
+    assert(round(pct.w*100)==48 and round(pct.h*100)==48)
+;;;
+}
+
+do {
+    print("show original centered")
+    pico.output.clear()
+    val r = ['%', x=0.5, y=0.5]
+    pico.output.draw.image(IMG, r)
+    pico.check("image_pct-01")
+}
+
+do {
+    print("show big centered")
+    pico.output.clear()
+    val r = ['%', x=0.5, y=0.5, w=1.0, h=1.0]
+    pico.output.draw.image(IMG, r)
+    pico.check("image_pct-02")
+}
+
+do {
+    print("show small centered")
+    pico.output.clear()
+    val r = ['%', x=0.5, y=0.5, w=0.2, h=0.2]
+    pico.output.draw.image(IMG, r)
+    pico.check("image_pct-03")
+}
+
+do {
+    print("show w-half proportional")
+    pico.output.clear()
+    val r = ['%', x=0.5, y=0.5, w=0.5]
+    pico.output.draw.image(IMG, r)
+    pico.check("image_pct-04")
+}
+
+do {
+    print("show w-half h-quart distorted")
+    pico.output.clear()
+    val r = ['%', x=0.5, y=0.5, w=0.5, h=0.25]
+    pico.output.draw.image(IMG, r)
+    pico.check("image_pct-05")
+}
+
+pico.close()

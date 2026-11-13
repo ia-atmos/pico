@@ -1,0 +1,86 @@
+include "../pico.atm"
+
+pico.open()
+val phy = ['!', w=100, h=100]
+val log = ['!', w=10, h=10]
+pico.set.window [ title="Pixmap" ]
+pico.set.layer(pico.layer.window())
+pico.set.scene [ dim=phy ]
+pico.set.layer(pico.layer.world())
+pico.set.scene [ dim=log ]
+
+;; .x.
+;; xxx
+;; .x.
+val pixmap = [
+    [
+        'black',                                ;; string
+        0xFFFF00,                               ;; hex number
+        [ r=0x00, g=0x00, b=0x00, a=0xFF ],     ;; implicit absolute
+    ],
+    [
+        ['!', r=0xFF, g=0x00, b=0x00],          ;; '!' table
+        'green',                                ;; string
+        ['%', r=0,    g=0,    b=1   ],          ;; '%' table
+    ],
+    [
+        pico.color.alpha('black', 0),
+        0x00FFFF,                               ;; hex number
+        pico.color.alpha('black', 0),
+    ],
+]
+
+do {
+    print("centered 3x3 on black - 1dir/1baixo")
+    val r = ['!', x=5-1, y=5-1, anchor='NW']
+    pico.output.clear()
+    val buf1 = pico.layer.pixmap [ pixels=pixmap ]
+    pico.output.draw.layer(buf1, r)
+    pico.check("pixmap-01")
+}
+
+do {
+    val pixmap = [
+        [
+            'black',
+            0xFFFF00,
+            [ r=0x00, g=0x00, b=0x00 ],             ;; default a=0xFF
+            ['!', r=0xFF, g=0x00, b=0x00],
+            'green',
+            ['%', r=0, g=0, b=1],
+            pico.color.alpha('black', 0),
+            0x00FFFF,
+            pico.color.alpha('black', 0),
+        ]
+    ]
+
+    print("bottomright 9x1 on white")
+    pico.set.effect [ color='white' ]
+    pico.output.clear()
+    val r = ['!', x=1, y=9, anchor='NW']
+    val buf2 = pico.layer.pixmap [ pixels=pixmap ]
+    pico.output.draw.layer(buf2, r)
+    pico.check("pixmap-02")
+}
+
+do {
+    print("aspect: w=6 only on 3x3 -> 6x6")
+    pico.set.effect [ color='black' ]
+    pico.output.clear()
+    val r = ['!', x=1, y=1, w=6, anchor='NW']
+    val buf3 = pico.layer.pixmap [ pixels=pixmap ]
+    pico.output.draw.layer(buf3, r)
+    pico.check("pixmap-03")
+}
+
+do {
+    print("distort: w=6, h=3 -> x-stretched")
+    pico.set.effect [ color='white' ]
+    pico.output.clear()
+    val r = ['!', x=1, y=1, w=6, h=3, anchor='NW']
+    val buf4 = pico.layer.pixmap [ pixels=pixmap ]
+    pico.output.draw.layer(buf4, r)
+    pico.check("pixmap-04")
+}
+
+pico.close()

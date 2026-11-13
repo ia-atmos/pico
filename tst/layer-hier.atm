@@ -1,0 +1,74 @@
+include "../pico.atm"
+
+;; Scene-graph smoke test: children attached to root.
+;; Relies on auto-composite (present walk) to blit onto root.
+;; No explicit pico.output.draw.layer call.
+
+pico.open()
+
+pico.set.effect [ color='black' ]
+pico.output.clear()
+
+val L = pico.layer.empty [ up=pico.layer.world(), dim=['!', w=8, h=8] ]
+
+var old = pico.set.layer(L)
+pico.set.scene([
+    target = ['%', x=0.3, y=0.3, w=0.4, h=0.4, anchor='C'],
+    clear = false,
+])
+pico.set.effect [ color='white' ]
+pico.output.clear()
+pico.set.pencil [ color='red' ]
+pico.output.draw.rect(
+    ['%', x=0.5, y=0.5, w=0.5, h=0.5, anchor='C']
+)
+
+pico.set.layer(old)
+pico.output.present()
+pico.check("layer-hier-01")
+
+val img = pico.layer.image [ up=pico.layer.world(), path="../c/res/open.png",
+    target=['%', x=0.7, y=0.7, w=0.4, h=0.4, anchor='C'] ]
+pico.output.present()
+pico.check("layer-hier-02")
+
+val buf = pico.layer.pixmap [ up=pico.layer.world(), pixels=[
+    [[r=255, g=0,   b=0,   a=255], [r=0, g=255, b=0,   a=255]],
+    [[r=0,   g=0,   b=255, a=255], [r=255, g=255, b=0, a=255]],
+], target=['%', x=0.7, y=0.3, w=0.4, h=0.4, anchor='C'] ]
+pico.output.present()
+pico.check("layer-hier-03")
+
+pico.set.pencil [ color='green' ]
+val txt = pico.layer.text [ up=pico.layer.world(), dim=['!', h=10], text="hello",
+    target=['%', x=0.3, y=0.7, w=0.4, h=0.4, anchor='C'] ]
+pico.output.present()
+pico.check("layer-hier-04")
+
+;;-------------------------------------------------------------------------
+
+;; transparent overlay with yellow background
+val over = pico.layer.empty [ up=pico.layer.world(), clear=false, dim=['!', w=500, h=500] ]
+set old = pico.set.layer(over)
+pico.set.effect [ color=[r=0xFF, g=0xFF, b=0x00], alpha=0x80 ]
+pico.output.clear()
+pico.set.scene([
+    target = ['%', x=0.5, y=0.5, w=1, h=1, anchor='C'],
+])
+pico.set.layer(old)
+pico.output.present()
+pico.check("layer-hier-05")
+
+;; sub-layers: crop blue and green from `buf`, parented under `over`
+val blue = pico.layer.sub [ up=over, sup=buf,
+    crop=['!', x=0, y=1, w=1, h=1, anchor='NW'],
+    target=['%', x=0.20, y=0.9, w=0.10, h=0.10, anchor='C'] ]
+
+val green = pico.layer.sub [ up=over, sup=buf,
+    crop=['!', x=1, y=0, w=1, h=1, anchor='NW'],
+    target=['%', x=0.40, y=0.9, w=0.10, h=0.10, anchor='C'] ]
+
+pico.output.present()
+pico.check("layer-hier-06")
+
+pico.close()

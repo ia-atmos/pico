@@ -1,0 +1,117 @@
+include "../pico.atm"
+
+pico.open()
+pico.set.window [ title="Get-Set" ]
+pico.set.layer(pico.layer.window())
+pico.set.scene [ dim=['!', w=640, h=480] ]
+pico.set.layer(pico.layer.world())
+pico.set.scene [ dim=['!', w=64, h=48] ]
+
+;; color_clear
+print("color_clear")
+do {
+    pico.set.effect [ color='red' ]
+    var c = pico.get.effect().color
+    assert(c.r==255 && c.g==0 && c.b==0 && c.a==255)
+    pico.set.effect [ color='blue' ]
+    set c = pico.get.effect().color
+    assert(c.r==0 && c.g==0 && c.b==255 && c.a==255)
+    pico.set.effect [ color='black' ]
+    set c = pico.get.effect().color
+    assert(c.r==0 && c.g==0 && c.b==0 && c.a==255)
+}
+
+;; color_clear with alpha
+print("color_clear_alpha")
+do {
+    pico.set.effect [ color=['!', r=0, g=0, b=255, a=128] ]
+    var c = pico.get.effect().color
+    assert(c.r==0 && c.g==0 && c.b==255 && c.a==128)
+    pico.set.effect [ color=['!', r=255, g=0, b=0, a=0] ]
+    set c = pico.get.effect().color
+    assert(c.r==255 && c.g==0 && c.b==0 && c.a==0)
+}
+
+;; color_draw
+print("color_draw")
+do {
+    pico.set.pencil [ color='green' ]
+    var c = pico.get.pencil().color
+    assert(c.r==0 && c.g==255 && c.b==0)
+    pico.set.pencil [ color='yellow' ]
+    set c = pico.get.pencil().color
+    assert(c.r==255 && c.g==255 && c.b==0)
+    pico.set.pencil [ color='white' ]
+    set c = pico.get.pencil().color
+    assert(c.r==255 && c.g==255 && c.b==255)
+}
+
+;; style
+print("style")
+do {
+    pico.set.pencil [ style='fill' ]
+    assert(pico.get.pencil().style == 'fill')
+    pico.set.pencil [ style='stroke' ]
+    assert(pico.get.pencil().style == 'stroke')
+    pico.set.pencil [ style='fill' ]
+    assert(pico.get.pencil().style == 'fill')
+}
+
+;; view (get defaults, set, get back)
+print("view")
+do {
+    var v = pico.get.scene()
+    assert(v.dim.w==64 && v.dim.h==48)
+    assert(v.tile.w==0 && v.tile.h==0)
+    assert(v.target@0=='%' && v.target.x==0.5 && v.target.y==0.5 && v.target.w==1 && v.target.h==1)
+    assert(v.source@0=='%' && v.source.x==0.5 && v.source.y==0.5 && v.source.w==1 && v.source.h==1)
+    assert(v.clip@0=='%' && v.clip.x==0.5 && v.clip.y==0.5 && v.clip.w==1 && v.clip.h==1)
+
+    pico.set.scene [ target=['%', x=0.5, y=0.5, w=0.5, h=0.5, anchor='C'] ]
+    set v = pico.get.scene()
+    assert(v.target.w==0.5 && v.target.h==0.5)
+
+    pico.set.scene [ source=['%', x=0.6, y=0.4, w=0.8, h=0.8, anchor='C'] ]
+    set v = pico.get.scene()
+    assert(pico.equal(v.source.x,0.6) && pico.equal(v.source.y,0.4))
+
+    ;; restore
+    pico.set.scene [
+        target=['%', x=0.5, y=0.5, w=1, h=1, anchor='C'],
+        source=['%', x=0.5, y=0.5, w=1, h=1, anchor='C'],
+    ]
+}
+
+;; window roundtrip: get -> set -> get must be idempotent
+print("window roundtrip")
+do {
+    pico.set.layer(pico.layer.window())
+    pico.set.effect [ color=['!', r=0x12, g=0x34, b=0x56, a=0x78] ]
+    pico.set.layer(pico.layer.world())
+    val w1 = pico.get.window()
+    pico.set.window(w1)
+    val w2 = pico.get.window()
+    assert(w2.fullscreen == w1.fullscreen)
+    assert(w2.title == w1.title)
+    pico.set.layer(pico.layer.window())
+    val c = pico.get.effect().color
+    val d = pico.get.scene().dim
+    pico.set.layer(pico.layer.world())
+    assert(c.r==0x12 && c.g==0x34 && c.b==0x56 && c.a==0x78)
+    assert(d.w>0 && d.h>0)
+}
+
+;; view roundtrip: get -> set -> get must be idempotent
+print("view roundtrip")
+do {
+    val v1 = pico.get.scene()
+    pico.set.scene(v1)
+    val v2 = pico.get.scene()
+    assert(v2.dim.w==v1.dim.w && v2.dim.h==v1.dim.h)
+    assert(v2.target@0 == v1.target@0)
+    assert(v2.source@0 == v1.source@0)
+    assert(v2.clip@0   == v1.clip@0)
+}
+
+print("OK")
+pico.close()
