@@ -2,8 +2,8 @@ include "../pico.atm"
 
 ;; The forms of `pico.input.event`:
 ;;      ()  (ms)  (filter)  (filter, ms)
-;; in which `filter` and `ms` may also be `nil`. Any other argument is an
-;; error, instead of being ignored.
+;; in which `filter` and `ms` may also be `nil`. Any other type for the two
+;; is an error. Arguments after the second are ignored.
 
 pico.open [ title="Input Event" ]
 pico.set.aids(false)        ;; 'quit' does not terminate the program
@@ -55,6 +55,12 @@ do {
     assert(e7 == nil)
     val e8 = pico.input.event(0)
     assert(e8 == nil)
+    ;; arguments after the second are ignored
+    pico.quit()
+    val e9 = pico.input.event('quit', 100, 'x')
+    assert(e9.tag == 'quit')
+    val e10 = pico.input.event(nil, 0, [], true)
+    assert(e10 == nil)
 }
 
 print("errors")
@@ -70,8 +76,6 @@ do {
     fails("bad argument #1 (string or integer expected, got table)",   \{ pico.input.event([]) })
     fails("bad argument #1 (string expected, got number)",    \{ pico.input.event(10, 20) })
     fails("bad argument #1 (string expected, got number)",    \{ pico.input.event(10, 'quit') })
-    fails("too many arguments",                               \{ pico.input.event('quit', 0, 0) })
-    fails("too many arguments",                               \{ pico.input.event('quit', 0, nil) })
     fails("invalid timeout",                                  \{ pico.input.event('quit', -2) })
     fails("invalid timeout",                                  \{ pico.input.event(-2) })
     fails("invalid event \"xxx\"",                            \{ pico.input.event('xxx') })

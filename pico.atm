@@ -72,7 +72,7 @@
 ;; program).
 ;;
 ;; `pico.input.event` evaluates to the event (or nil on a timeout) and to the
-;; time passed in milliseconds, and accepts exactly these forms:
+;; time passed in milliseconds, and accepts these forms:
 ;;
 ;;      pico.input.event()              any event, no timeout
 ;;      pico.input.event(ms)            any event, up to `ms`
@@ -83,7 +83,8 @@
 ;; event. `ms` is an integer (a number with no fractional part) from 0, or
 ;; nil or -1 for no timeout. Anything else is an error: an argument of
 ;; another type, a number where the filter goes if `ms` is also given, an
-;; unknown name, a timeout below -1, or a third argument.
+;; unknown name, or a timeout below -1. Arguments after the second are
+;; ignored, as in the other functions.
 ;;
 ;; REACTIVE PROGRAMS call `pico.open()` and await. When the main chunk awaits
 ;; (it does not terminate) and pico is open, the program runs inside the loop
@@ -1981,13 +1982,9 @@ static AStatus l_input_delay (AFunc* self, int argc, AVal* argv) {
 // pico.input.event(filter [, ms])
 //  - filter: a string of PA_EVENTS, or nil for any event
 //  - ms: an integer >= 0, or nil (or -1) to wait with no timeout
-//  - at most 2 arguments
+//  - further arguments are ignored
 static AStatus l_input_event (AFunc* self, int argc, AVal* argv) {
     PA_IN("input.event")
-    if (argc > 2) {
-        return a_error("%s : too many arguments (at most 2, got %d)",
-            PA_FN, argc);
-    }
     AVal a0 = PA_ARG(0);
     AVal a1 = PA_ARG(1);
     AVal vms = a1;
@@ -2615,7 +2612,7 @@ val pico = [
         ;;    'mouse.button.dn', 'mouse.button.up', 'window.resize', or nil
         ;;    for any event
         ;;  - ms: an integer >= 0, or nil (or -1) for no timeout
-        ;;  - any other argument, or a third one, is an error
+        ;;  - any other type for the two is an error
         event = `:value a_func(l_input_event, 0)`,
         loop  = `:value a_func(l_input_loop,  0)`,  ;; (): until the window closes
     ],

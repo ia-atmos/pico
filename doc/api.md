@@ -303,11 +303,11 @@ In alphabetical order:
           `nil` for any event. The events that do not match are discarded.
         - `ms`: an integer (a number with no fractional part) from `0`, or
           `nil` or `-1` for no timeout.
-        - These are the only forms. It is an error to pass an argument of
-          another type (`pico.input.event('quit', '10')`), a number in the
-          place of the filter when `ms` is also given
-          (`pico.input.event(10, 20)`), an unknown filter, a timeout below
-          `-1`, or a third argument.
+        - It is an error to pass an argument of another type
+          (`pico.input.event('quit', '10')`), a number in the place of the
+          filter when `ms` is also given (`pico.input.event(10, 20)`), an
+          unknown filter, or a timeout below `-1`. Arguments after the second
+          are ignored, as in the other functions.
         - In expert mode with an FPS, the forms with no `ms` also return
           `nil` when the frame expires (see `pico.set.expert`).
     - **pico.input.loop**: Blocks on event loop until quit.
