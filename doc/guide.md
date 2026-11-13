@@ -1349,8 +1349,11 @@ On each frame, the loop emits, in this order:
 3. the event `:draw`, between a clear and a present, for the program to redraw
    the screen.
 
-The loop runs in expert mode, at `30` FPS by default, or at the rate that the
-program sets with `pico.set.expert(true,fps)`.
+The loop runs in expert mode, at `30` FPS if the program has not enabled the
+expert mode itself, or at the rate that the program sets with
+`pico.set.expert(true,fps)`.
+If the program calls `pico.set.expert(true)` with no FPS, the loop only
+advances on input events: timers do not awake while there are none.
 
 The next example moves a square from left to right:
 

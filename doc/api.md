@@ -83,6 +83,12 @@ index `0` of the table, and is mandatory:
 - `'%'`: percentage of the layer
 - `'#'`: tiles
 
+The values that operations return are not symmetric with the ones they accept:
+an `Anchor` always comes back as a table `[x=, y=]`, never as a string, and a
+`Color` always comes back as `[r=, g=, b=, a=]`, with integers from `0` to
+`255` and no mode at index `0`.
+Both are valid as arguments.
+
 ## Lifetimes
 
 Layers, fonts, and sounds are native values:
@@ -210,7 +216,9 @@ In alphabetical order:
     - **pico.get.keyboard**: Gets keyboard modifier state.
         - `pico.get.keyboard () ->
           [ key: string, ctrl: boolean, shift: boolean, alt: boolean ]`
-        - `key` is always the empty string.
+        - `key` is always the empty string: the call polls the modifiers
+          only, and the key itself only comes in the events `:key.dn` and
+          `:key.up`.
     - **pico.get.layer**: Gets the current layer.
         - `pico.get.layer () -> Layer?`
         - Returns `nil` if the value of the current layer is gone (see
@@ -225,6 +233,8 @@ In alphabetical order:
           (e.g. `'NW'`); only the mode and the anchor of the table are read.
         - Returned `Mouse` is a new table, which mirrors `mode` and `anchor`
           of the request.
+        - After an entry of `PICO_ATM_MOUSE` (see [Tests](#tests)), the
+          position and the left button are the scripted ones.
         - Forms:
             - `pico.get.mouse('!')` — cur, pixels, C anchor
             - `pico.get.mouse(nil, '!')` — explicit nil = cur
@@ -285,11 +295,19 @@ In alphabetical order:
     - **pico.input.event**: Waits for an event.
         - `pico.input.event () -> Event, integer`
         - `pico.input.event (ms: integer) -> Event?, integer`
-        - `pico.input.event (filter: string) -> Event, integer`
-        - `pico.input.event (filter: string, ms: integer) -> Event?, integer`
+        - `pico.input.event (filter: string?) -> Event, integer`
+        - `pico.input.event (filter: string?, ms: integer?) -> Event?, integer`
         - Returns event (or nil on timeout) and elapsed time in ms (delta time)
-        - Filters: `'quit'`, `'window.resize'`, `'key.dn'`, `'key.up'`,
-          `'mouse.motion'`, `'mouse.button.dn'`, `'mouse.button.up'`
+        - `filter`: `'quit'`, `'window.resize'`, `'key.dn'`, `'key.up'`,
+          `'mouse.motion'`, `'mouse.button.dn'`, `'mouse.button.up'`, or
+          `nil` for any event. The events that do not match are discarded.
+        - `ms`: an integer (a number with no fractional part) from `0`, or
+          `nil` or `-1` for no timeout.
+        - These are the only forms. It is an error to pass an argument of
+          another type (`pico.input.event('quit', '10')`), a number in the
+          place of the filter when `ms` is also given
+          (`pico.input.event(10, 20)`), an unknown filter, a timeout below
+          `-1`, or a third argument.
         - In expert mode with an FPS, the forms with no `ms` also return
           `nil` when the frame expires (see `pico.set.expert`).
     - **pico.input.loop**: Blocks on event loop until quit.
@@ -328,8 +346,15 @@ In alphabetical order:
             up:     Layer,      -- parent of the generated sub-layers
             path:   string,     -- sprite sheet image file
             sheet:  table,      -- grid or explicit spec (below)
+            target: Rect,       -- scene.target placement of each sub-layer
         ] -> table              -- generated sub-layers
         ```
+        - `target` has the meaning it has in the other constructors, and
+          applies to every generated sub-layer: they all get the same
+          placement in the parent, which is also where
+          `pico.output.draw.layer(l)` draws each of them when it receives no
+          `rect`. If absent, each sub-layer keeps the default placement of a
+          `pico.layer.sub`.
         - `sheet`:
             - **Grid**: `[ '#', w: integer, h: integer, [n: integer] ]`
                 - generates a vector with the sub-layers, from index `0`
@@ -404,7 +429,8 @@ In alphabetical order:
     ]
     ```
     - `pico.open ()` uses all defaults.
-    - The field `fs` may also be named `fullscreen`.
+    - The field `fs` may also be named `fullscreen` (`fs` prevails if both
+      are given).
     - It is an error to open pico twice with no `pico.close` in between.
     - The current layer is the world.
 - **pico.output**
@@ -621,8 +647,20 @@ par {
 }
 ```
 
-The loop runs in expert mode, at 30 FPS by default, or as the program sets
-with `pico.set.expert(true,fps)` before it awaits.
+The loop runs in expert mode, and leaves it on when it terminates:
+
+- If the expert mode is off when the loop starts, the loop turns it on at 30
+  FPS.
+- If the program has turned it on before it awaits, the loop keeps its
+  setting.
+  `pico.set.expert(true,fps)` runs the loop at `fps`.
+  `pico.set.expert(true)`, with no FPS, makes each frame wait for an input
+  event with no timeout: while there are no events, there are no frames, the
+  time does not advance (`await 1s` does not awake), and nothing is redrawn.
+- A frame ends at its deadline or as soon as a real input event arrives, so
+  that the FPS is the minimum rate: each event has a frame (and a `:draw`) of
+  its own.
+
 Each iteration of the loop is a frame, which emits to the program, in this
 order:
 
@@ -641,8 +679,14 @@ order:
 - The input events are the same [`Event`](#types) values of
   `pico.input.event`, such that `await :key.dn [key='Escape']` and
   `loop e on :mouse.button.dn {...}` match them.
-- At most one input event is emitted per frame.
-- The time is only emitted if it is greater than zero.
+- At most one real input event is emitted per frame: the others wait for the
+  next frames.
+  The scripted events of `PICO_ATM_KEYS` and `PICO_ATM_MOUSE` (see
+  [Tests](#tests)) are emitted in addition, after the real event and before
+  `:draw`: all the entries of the frame, the keys first, each list in its
+  order.
+- The time is only emitted if it is greater than zero: a frame in which `0ms`
+  passed emits no time.
 - The event `:draw` is a plain tag, not a table.
   The clear before it applies to the current layer, which is the world,
   unless the program changes it.
@@ -660,28 +704,54 @@ interaction:
 |----------|-------------|
 | `PICO_ATM_FRAMES=n:ms` | runs `n` frames, then emits `:quit`; if `ms` is not `0`, each frame lasts exactly `ms` milliseconds and does not wait |
 | `PICO_ATM_KEYS=f:dn:A,...` | presses (`dn`) or releases (`up`) keys at the given frames, as `:key.dn` and `:key.up` events with the given key names |
+| `PICO_ATM_MOUSE=f:dn:x:y,...` | presses (`dn`) or releases (`up`) the left button, or only moves the mouse (`mv`), at the pixel `(x,y)` of the window at the given frames, as `:mouse.button.dn`, `:mouse.button.up`, and `:mouse.motion` events |
 | `PICO_ATM_SHOT=f:x.png,...` | saves the window to the given files at the given frames, after the present |
 
 Frames count from `1`.
 As an example, the next command runs 12 frames of `20ms`, presses `A` at
-frame 4, releases it at frame 6, and saves the window at frame 8:
+frame 4, releases it at frame 6, clicks at the pixel `(250,100)` of the window
+at frame 7, and saves the window at frame 8:
 
 ```
-$ PICO_ATM_FRAMES=12:20 PICO_ATM_KEYS=4:dn:A,6:up:A PICO_ATM_SHOT=8:out.png \
+$ PICO_ATM_FRAMES=12:20 PICO_ATM_KEYS=4:dn:A,6:up:A \
+    PICO_ATM_MOUSE=7:dn:250:100,7:up:250:100 PICO_ATM_SHOT=8:out.png \
     pico-atmos game.atm
 ```
+
+- With `PICO_ATM_FRAMES=n:0`, the frames are the real ones, which wait as the
+  expert mode determines: after `pico.set.expert(true)` with no FPS, a frame
+  only happens on a real input event (see [Reactive Mode](#reactive-mode)).
+- A scripted key has `ctrl`, `shift`, and `alt` set to `false`.
+- A scripted mouse event has the fields of a real one, in pixels of the
+  window: `['!', x=, y=, anchor=[x=0.5,y=0.5], left=, right=false,
+  middle=false]`.
+  With the anchor at the center of the pixel, the entry `dn:250:100` has
+  `x=250.5` and `y=100.5`, as a real click on that pixel.
+  `left` is `true` from a `dn` up to the next `up`, including the `mv` in
+  between.
+  A `dn` or `up` does not emit a `:mouse.motion` before it.
+- From the first scripted mouse event on, `pico.get.mouse` answers with the
+  scripted position and left button, in any layer and mode, until a real
+  mouse event arrives or the program calls `pico.set.mouse`.
+  The real cursor does not move.
+- An invalid entry of `PICO_ATM_MOUSE` raises an error at its frame.
 
 The next operations are the helpers of the visual tests of the binding
 (`tst/*.atm`):
 
-- **pico.check**: Saves the window to `../c/tst/out/<name>.png`, relative to
-  the program.
+- **pico.check**: Saves the window to `$PICO_ROOT/c/tst/out/<name>.png`.
     - `pico.check (name: string)`
+    - `PICO_ROOT` is the absolute root of the repository, which the script
+      `pico-atmos` exports to the program, such that the call works from any
+      directory.
+      If the variable is not set (the program runs without the script), the
+      directories are `../c/tst/out` and `../c/tst/asr`, relative to the
+      current directory.
     - If the environment variable `PICO_CHECK_INT` is set, waits for a key
       press.
     - If the environment variable `PICO_CHECK_ASR` is set, compares the file
-      with the reference image `../c/tst/asr/<name>.png`, and raises an error
-      if they differ.
+      with the reference image `$PICO_ROOT/c/tst/asr/<name>.png` (or
+      `<name>-CI.png`), and raises an error if they differ.
 - **pico.equal**: True if two numbers are close enough (they differ by less
   than `0.001`).
     - `pico.equal (a: number, b: number) -> boolean`
