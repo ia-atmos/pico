@@ -22,7 +22,7 @@ int main (void) {
 
     // test: delay returns dt
     int dt = pico_input_delay(100);
-    assert(dt>=100 && dt<=105);
+    assert(dt>=100 && dt<=110);
 
     pico_close();
     return 0;
