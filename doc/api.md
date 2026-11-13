@@ -396,6 +396,8 @@ In alphabetical order:
         ```
         - `sup` and `crop` are required.
         - `sup` cannot be a sub-layer itself.
+        - While the sub-layer lives, `sup` cannot be resized (`dim` in
+          `pico.set.scene`, `pico.set.dim`).
     - **pico.layer.text**: Creates a layer from text.
         ```
         pico.layer.text [
@@ -514,6 +516,8 @@ In alphabetical order:
     - **pico.set.dim**: Sets both window and world to the same dimensions.
         - `pico.set.dim (dim: Dim)`
         - The mode `'%'` is invalid.
+        - It is an error if the window or the world has live sub-layers (see
+          `pico.set.scene`).
     - **pico.set.effect**: Sets effect configuration.
         ```
         pico.set.effect [
@@ -572,6 +576,10 @@ In alphabetical order:
             - `dim '#'` / `tile '!'`: `dim` counts cells (dim = d·tile)
             - `dim '#'` / `tile '#'|'%'`: invalid modes
         - `dim '%'` is invalid.
+        - `dim` is an error (`cannot resize a layer with live sub-layers`)
+          while a sub-layer of the layer (`pico.layer.sub`,
+          `pico.layer.images`) is alive: the sub-layers borrow the texture
+          that `dim` replaces. It is allowed again when they are gone.
         - `clear=true` is invalid for the world, the window, and sub-layers.
     - **pico.set.video**: Sets video frame.
         - `pico.set.video (video: Layer, frame: integer) -> boolean`

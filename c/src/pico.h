@@ -532,7 +532,9 @@ Pico_Layer* pico_layer_screenshot (Pico_Layer* up, Pico_Layer* src,
 
 /// @brief Creates a sub-layer (crop) from an existing layer.
 /// Shares the source's texture — no copy. The source cannot be freed
-/// while a sub-layer of it is alive.
+/// nor resized (@ref pico_set_scene_dim, @ref pico_set_scene_dim_tile
+/// with a dim, @ref pico_set_scene, @ref pico_set_dim) while a
+/// sub-layer of it is alive.
 /// @param up parent layer to attach to (NULL leaves it detached)
 /// @param src source layer (must not be a sub-layer)
 /// @param crop source rectangle within `src`
@@ -635,6 +637,8 @@ const char*  pico_get_window_title (void);
 
 /// @brief Sets both window and world to the same dimensions.
 /// @param dim dimensions for both window and world
+/// @note Asserts if the window or the world has live sub-layers
+///       (see @ref pico_layer_sub).
 /// @sa pico_set_window
 /// @sa pico_set_scene_dim
 void pico_set_dim (Pico_Rel_Dim dim);
@@ -698,6 +702,11 @@ int pico_set_video (Pico_Layer* layer, int frame);
 
 /// @brief Sets the entire scene state of the current layer.
 /// @param scene new scene state
+/// @note pico_set_scene, pico_set_scene_dim, and pico_set_scene_dim_tile
+///       (with a dim) replace the texture of the layer: they assert
+///       ("cannot resize a layer with live sub-layers") if the layer is
+///       the source of a live sub-layer (see @ref pico_layer_sub), which
+///       borrows that texture.
 /// @sa pico_get_scene
 void pico_set_scene       (Pico_Layer_Scene scene);
 void pico_set_scene_clip  (Pico_Rel_Rect clip);

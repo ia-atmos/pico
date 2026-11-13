@@ -185,6 +185,8 @@ const char* pico_get_window_title (void) {
 
 void pico_set_dim (Pico_Rel_Dim dim) {
     _pico_guard();
+    assert(G.window.layer.subs==0 && G.world.subs==0
+        && "cannot resize a layer with live sub-layers");
     Pico_Layer* old = _pico_set_layer(&G.window.layer);
     pico_set_scene_dim(dim);
     _pico_set_layer(&G.world);
@@ -313,6 +315,7 @@ void pico_set_effect_rotate (Pico_Rot rotate) {
 void pico_set_scene (Pico_Layer_Scene view) {
     _pico_guard();
     Pico_Layer* L = G.layer;
+    assert(L->subs==0 && "cannot resize a layer with live sub-layers");
     if (L->tex != NULL) {
         SDL_DestroyTexture(L->tex);
     }
@@ -332,6 +335,7 @@ void pico_set_scene_clip (Pico_Rel_Rect clip) {
 
 // apply an already-resolved abs dim: swap the texture and refresh
 static void _apply_scene_dim (Pico_Layer* L, Pico_Abs_Dim di) {
+    assert(L->subs==0 && "cannot resize a layer with live sub-layers");
     L->scene.dim = di;
     assert(L->tex != NULL);
     SDL_DestroyTexture(L->tex);

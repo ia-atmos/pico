@@ -181,6 +181,7 @@ typedef struct PA_Lay {
     int            gen;
     int            rc;
     int            kind;
+    int            subs;    // live sub-layers that borrow its texture
     struct PA_Lay* up;      // parent it is attached to
     struct PA_Lay* sup;     // source of a sub-layer
     AVal           font;    // font of its pencil, as set: box, path, or nil
@@ -258,6 +259,9 @@ static void pa_lay_unref (PA_Lay* s) {
         }
         PA_Lay* up  = s->up;
         PA_Lay* sup = s->sup;
+        if (sup != NULL) {
+            sup->subs--;
+        }
         pa_res_unref(s->fres);
         a_dec(s->font);
         free(s);
@@ -272,12 +276,13 @@ static void pa_lay_fin (void* p) {
 
 static AVal pa_lay_new (Pico_Layer* lay, int kind, PA_Lay* up, PA_Lay* sup) {
     PA_Lay* s = malloc(sizeof(PA_Lay));
-    *s = (PA_Lay) { lay, PA.gen, 1, kind, up, sup, a_nil(), NULL };
+    *s = (PA_Lay) { lay, PA.gen, 1, kind, 0, up, sup, a_nil(), NULL };
     if (up != NULL) {
         up->rc++;
     }
     if (sup != NULL) {
         sup->rc++;
+        sup->subs++;
     }
     return a_nat(s, pa_lay_fin, PA_KIND_LAY);
 }
@@ -1361,6 +1366,15 @@ static AStatus l_set_aids (AFunc* self, int argc, AVal* argv) {
     return A_OK;
 }
 
+// A layer whose texture may be replaced: sub-layers borrow it.
+static int pa_resize (PA_Lay* s) {
+    if (s->subs > 0) {
+        a_error("%s : cannot resize a layer with live sub-layers", PA_FN);
+        return 0;
+    }
+    return 1;
+}
+
 // pico.set.dim(dim)
 static AStatus l_set_dim (AFunc* self, int argc, AVal* argv) {
     PA_IN("set.dim")
@@ -1369,6 +1383,8 @@ static AStatus l_set_dim (AFunc* self, int argc, AVal* argv) {
     if (dim.mode == '%') {
         return a_error("%s : invalid mode '%%'", PA_FN);
     }
+    PA_TRY(pa_resize((PA_Lay*)a_nat_ptr(PA.world))
+        && pa_resize((PA_Lay*)a_nat_ptr(PA.window)));
     pico_set_dim(dim);
     return A_OK;
 }
@@ -1533,6 +1549,7 @@ static AStatus l_set_scene (AFunc* self, int argc, AVal* argv) {
         if (dim.mode == '%') {
             return a_error("%s : invalid mode '%%' in 'dim'", PA_FN);
         }
+        PA_TRY(pa_resize(PA.cur));
         xdim = &dim;
     }
     if (vtile.type != A_NIL) {

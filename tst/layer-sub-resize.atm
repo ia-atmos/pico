@@ -1,0 +1,80 @@
+include "../pico.atm"
+
+;; A layer with live sub-layers cannot be resized: `pico.set.scene [dim=]`
+;; and `pico.set.dim` replace the texture that the sub-layers borrow.
+
+pico.open [ title="Layer sub resize" ]
+
+func fails (msg, f) {
+    val ok, err = catch true { f() }
+    assert(!ok, "expected error : " ++ msg)
+    assert(string.find(err, msg), "unexpected error : " ++ err)
+    print("error", err)
+}
+
+val MSG  = "cannot resize a layer with live sub-layers"
+val CROP = ['!', x=0, y=0, w=4, h=4, anchor='NW']
+val world = pico.layer.world()
+
+print("1. pico.set.scene [dim=]")
+do {
+    val src = pico.layer.empty [ dim=['!',w=8,h=8] ]
+    pico.set.layer(src)
+    pico.set.scene [ dim=['!',w=16,h=16] ]              ;; no sub-layers yet
+    assert(pico.get.scene().dim.w == 16)
+    do {
+        val sub = pico.layer.sub [ sup=src, crop=CROP ]
+        fails(MSG, \{ pico.set.scene [ dim=['!',w=32,h=32] ] })
+        fails(MSG, \{ pico.set.scene [ dim=['!',w=32,h=32], tile=['!',w=4,h=4] ] })
+        fails(MSG, \{ pico.set.scene [ dim=['!',w=16,h=16] ] })   ;; even the same
+        assert(pico.get.scene().dim.w == 16)
+        ;; what does not replace the texture is still allowed
+        pico.set.scene [ tile=['!',w=4,h=4], clip=['!',x=0,y=0,w=8,h=8,anchor='NW'] ]
+        assert(pico.get.scene().tile.w == 4)
+        ;; the sub-layer itself has no sub-layers
+        pico.set.layer(sub)
+        pico.set.layer(src)
+    }                                                   ;; the sub-layer is gone
+    pico.set.scene [ dim=['!',w=32,h=32] ]
+    assert(pico.get.scene().dim.w == 32)
+    pico.set.layer(world)
+}
+
+print("2. two sub-layers: both must go")
+do {
+    val src = pico.layer.empty [ dim=['!',w=8,h=8] ]
+    var s1 = pico.layer.sub [ sup=src, crop=CROP ]
+    var s2 = pico.layer.sub [ sup=src, crop=CROP ]
+    pico.set.layer(src)
+    fails(MSG, \{ pico.set.scene [ dim=['!',w=4,h=4] ] })
+    set s1 = nil
+    fails(MSG, \{ pico.set.scene [ dim=['!',w=4,h=4] ] })
+    set s2 = nil
+    pico.set.scene [ dim=['!',w=4,h=4] ]
+    assert(pico.get.scene().dim.w == 4)
+    pico.set.layer(world)
+}
+
+print("3. pico.set.dim: world and window")
+do {
+    do {
+        val sub = pico.layer.sub [ sup=world, crop=CROP ]
+        fails(MSG, \{ pico.set.dim(['!',w=200,h=200]) })
+        fails(MSG, \{ pico.set.scene [ dim=['!',w=50,h=50] ] })
+    }
+    do {
+        val sub = pico.layer.sub [ sup=pico.layer.window(), crop=CROP ]
+        fails(MSG, \{ pico.set.dim(['!',w=200,h=200]) })
+        pico.set.scene [ dim=['!',w=50,h=50] ]          ;; the world is free
+    }
+    pico.set.dim(['!',w=200,h=200])
+    assert(pico.get.scene().dim.w == 200)
+}
+
+print("4. sprite sheet: the image has sub-layers")
+do {
+    var imgs = pico.layer.images [ path="../c/res/open.png", sheet=['#', w=2, h=2] ]
+    set imgs = nil
+}
+
+print("ok")
