@@ -1,24 +1,23 @@
-require "atmos.env.pico"
-set pico = require "pico"
+include "../../pico.atm"
 
 val W = 640
 val H = 480
 
-pico.zet.title "Storm"
-val dim = @{ '!', w=W, h=H }
-pico.zet.view @{ window=dim, world=dim }
-pico.zet.color.clear @{ r=0x21, g=0x2C, b=0x34 }
+pico.open()
+pico.set.window [ title="Storm" ]
+pico.set.dim ['!', w=W, h=H]
+pico.set.effect [ color=[ r=0x21, g=0x2C, b=0x34 ] ]
 
-math.randomseed()
+math.randomseed(os.time())
 
 ;; Shared game state accessible by all entities
-val G = @{
+pin G = [
     W  = W,
     H  = H,
     PI = math.pi,
-}
+]
 
-require "ts"
+include "ts.atm"
 
 pin drops  = tasks()
 pin clouds = tasks()
@@ -39,9 +38,9 @@ spawn Collisions(G)
 ;; DEBUG: press Down to spawn lightning
 spawn {
     loop {
-        await(:key.dn, 'Down')
-        spawn [lights] Light(
-            G, @{ x=300, y=0 }, 270, 50, false
+        await :key.dn [key='Down']
+        spawn @lights Light(
+            G, [ x=300, y=0 ], 270, 50, false
         )
     }
 }

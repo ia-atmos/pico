@@ -1,14 +1,14 @@
-require "atmos.env.pico"
-set pico = require "pico"
+include "../../pico.atm"
 
-set W, H = (640, 480)
+val W, H = 640, 480
 
+pico.open()
 pico.set.window [ title="The Battle of Ships" ]
 pico.set.dim ['!', w=640, h=480]
 
-math.randomseed()
+math.randomseed(os.time())
 
-val Battle = require "battle" ;; actual battle gameplay
+include "battle.atm" ;; actual battle gameplay
 
 spawn {    ;; BACKGROUND
     ;;;
@@ -35,8 +35,8 @@ spawn {    ;; POINTS
     val r = [ '%', x=0.9, y=0.9, h=0.075 ]
     loop on :draw {
         pico.set.pencil [ color="white" ]
-        pico.output.draw.text.dyn("/points-L", points.L, l)
-        pico.output.draw.text.dyn("/points-R", points.R, r)
+        pico.output.draw.text(tostring(points.L), l)
+        pico.output.draw.text(tostring(points.R), r)
     }
 }
 
@@ -59,7 +59,7 @@ loop {
                 val p = [ '%', x=0.5, y=0.5, h=0.075 ]
                 loop on :draw {
                     pico.set.pencil [ color="white" ]
-                    pico.output.draw.text.fix("= PRESS ENTER TO START =", p)
+                    pico.output.draw.text("= PRESS ENTER TO START =", p)
                 }
             }
             ;; 500ms off

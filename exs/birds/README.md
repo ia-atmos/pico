@@ -1,20 +1,21 @@
 # pico-birds
 
-An [Atmos][atmos] + [atmos-env-pico][env-pico] tutorial in 11 steps.
+An [Atmos][atmos] + [pico][pico] tutorial in 11 steps.
 
-[atmos]:    https://github.com/atmos-lang/atmos/
-[env-pico]: https://github.com/lua-atmos/env-pico/
+[atmos]: https://github.com/ia-atmos/lang
+[pico]:  https://github.com/ia-atmos/pico
 
 # Install
 
+It requires the [Atmos][atmos] compiler and the development files of
+SDL2:
+
 ```
-sudo luarocks --lua-version=5.4 install atmos-lang 0.8
-sudo luarocks --lua-version=5.4 install atmos-env-pico 0.4
+sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev
 ```
 
 # Run
 
 ```
-git checkout v0.9
-atmos birds-11.atm
+ATMOS=/path/to/atmos ../../pico-atmos birds-11.atm
 ```

@@ -10,8 +10,7 @@ A 2D graphics library for [Atmos][atmos], built on [pico-sdl](c/).
   binding.
 - [`tst/`](tst/): tests of the binding.
 - [`c/`](c/): the C library (`pico-sdl`), with its tests and documentation.
-- Games, still in the previous Atmos dialect and not yet ported to the
-  binding:
+- Games:
     - [`exs/birds/`](exs/birds/): a tutorial in 11 steps
     - [`exs/rocks/`](exs/rocks/): a spaceship shooter for 2 players
     - [`exs/storm/`](exs/storm/): a port of `ceu-sdl-storm`

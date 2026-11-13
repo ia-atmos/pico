@@ -1,17 +1,17 @@
-require "atmos.env.pico"
-val pico = require "pico"
+include "../../pico.atm"
 
+pico.open()
 pico.set.window [ title="Birds - 01 (task)" ]
 pico.set.dim ['!', w=640, h=480]
 
 
-pico.layer.image [ key=:up, path="res/bird-up.png" ]
-pico.layer.image [ key=:dn, path="res/bird-dn.png" ]
+val up = pico.layer.image [ path="res/bird-up.png" ]
+val dn = pico.layer.image [ path="res/bird-dn.png" ]
 
 task Bird (y, speed) {
     var xx  = 0
     var yy  = y
-    var img = :dn
+    var img = dn
     par {
         var ang = 0
         loop us on :clock {
@@ -20,7 +20,7 @@ task Bird (y, speed) {
             set yy = y - ((speed * math.sin(ang)) / 5)
             set ang = ang + ((math.pi*v)/100)
             val tmp = ((ang+(math.pi/2)) / math.pi) --> math.floor
-            set img = if (tmp%2)==0 => :up => :dn
+            set img = if (tmp%2)==0 => up => dn
         }
     } with {
         loop on :draw {

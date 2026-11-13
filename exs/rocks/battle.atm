@@ -1,4 +1,4 @@
-require "ts" ;; task prototypes for Ship, Shot, Meteor
+include "ts.atm" ;; task prototypes for Ship, Shot, Meteor
 
 ;; Left/Right ship constant parameters
 
@@ -28,6 +28,13 @@ val V = [
         img = "imgs/ship-R.gif",    ;; ship image
     ],
 ]
+
+;; Appends the tasks of a pool to a table.
+func collect (ts, pool) {
+    loop _,t in pool {
+        set ts@+ = t
+    }
+}
 
 ;;;
 ;; Declares and spawns the game objects:
@@ -78,7 +85,14 @@ task Battle () {
                 ;; `watching`, also terminating the current battle.
                 ;;;
 
-                val ts = [] ++ ships ++ shots_l ++ shots_r ++ meteors
+                ;; The tasks belong to their pools, so the table that
+                ;; refers to them must be pinned too: it does not outlive
+                ;; this iteration.
+                pin ts = []
+                collect(ts, ships)
+                collect(ts, shots_l)
+                collect(ts, shots_r)
+                collect(ts, meteors)
 
                 ;; check valid collisions within `ts` and emit 'collided'
                 ;; (ignore ship 'R'/'r' shot, ship 'L'/'l' shot, 'M'/'M' meteors)
@@ -114,5 +128,3 @@ task Battle () {
         :R => :L
     }
 }
-
-Battle  ;; result of 'require "battle"'
