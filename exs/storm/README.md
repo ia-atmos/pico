@@ -28,8 +28,9 @@ ATMOS=/path/to/atmos ../../pico-atmos main.atm
 
 # Notes
 
+- The game is all in Atmos, with no C of its own.
 - The collisions between drops and between drops and the car are tested
   once per frame.
-  A small C function in `ts.atm` (`near_set`, `near_get`) selects the
-  drops that are close to each other, and only these are tested with
-  `pico.vs.rect.rect`.
+  The drops go into a grid (`GRID` in `ts.atm`), and each drop is only
+  compared with those in the cells around it: first as plain numbers,
+  and then with `pico.vs.rect.rect` if they are close.

@@ -9,78 +9,16 @@ val DROPS_PERSEC_MIN =  10
 val DROPS_PERSEC_MAX = 100
 val DROPS_DECAY_MS   = 2000
 val DROPS_LEN        = 2
+val DROPS_LEN_MAX    = DROPS_LEN * 4
 
-;; --------------------------------------------------------
-;; Native
-;; --------------------------------------------------------
-
-;; Broad phase of the drop collisions, which is the only part
-;; of the game in C: with 300+ drops, there are 100000+ pairs
-;; to test per frame, of which only a few are close.
-;;   - near_set(i, x,y,w,h): sets rect `i`
-;;   - near_get(i, n): vector with the indexes of the rects
-;;     in `0..n-1` that are close to rect `i`, in ascending
-;;     order
-;; Close rects are candidates only (2 pixels of slack): the
-;; collision itself remains with `pico.vs.rect.rect`.
-
-```:prelude
-#include <stdlib.h>
-
-typedef struct { double x1, y1, x2, y2; } Storm_Rect;
-
-static Storm_Rect* STORM_V   = NULL;
-static int         STORM_CAP = 0;
-
-// near_set(i, x, y, w, h)
-static AStatus storm_near_set (AFunc* self, int argc, AVal* argv) {
-    (void) self;
-    for (int k=0; k<5; k++) {
-        if (k>=argc || !a_isnum(argv[k])) {
-            return a_error("near_set : expected 5 numbers");
-        }
-    }
-    int i = (int) a_dbl(argv[0]);
-    if (i < 0) {
-        return a_error("near_set : invalid index");
-    }
-    if (i >= STORM_CAP) {
-        STORM_CAP = (i + 1) * 2;
-        STORM_V = realloc(STORM_V, STORM_CAP * sizeof(Storm_Rect));
-        if (STORM_V == NULL) {
-            abort();
-        }
-    }
-    double x=a_dbl(argv[1]), y=a_dbl(argv[2]);
-    double w=a_dbl(argv[3]), h=a_dbl(argv[4]);
-    STORM_V[i] = (Storm_Rect) { x-2, y-2, x+w+2, y+h+2 };
-    return A_OK;
-}
-
-// near_get(i, n)
-static AStatus storm_near_get (AFunc* self, int argc, AVal* argv) {
-    (void) self;
-    int i = (argc>=1 && a_isnum(argv[0])) ? (int)a_dbl(argv[0]) : -1;
-    int n = (argc>=2 && a_isnum(argv[1])) ? (int)a_dbl(argv[1]) : -1;
-    if (i<0 || i>=n || n>STORM_CAP) {
-        return a_error("near_get : invalid index");
-    }
-    Storm_Rect a = STORM_V[i];
-    AVal ret = a_tab();
-    for (int j=0; j<n; j++) {
-        Storm_Rect b = STORM_V[j];
-        if (j!=i && a.x1<=b.x2 && b.x1<=a.x2
-                 && a.y1<=b.y2 && b.y1<=a.y2) {
-            a_setindex_next(ret, a_int(j));
-        }
-    }
-    a_push(ret);
-    return A_OK;
-}
-```
-
-val near_set = `:value a_func(storm_near_set, 0)`
-val near_get = `:value a_func(storm_near_get, 0)`
+;; Broad phase of the collisions, on plain numbers:
+;;   - NEAR: rects up to NEAR pixels apart are candidates
+;;     (the rects are rounded to pixels, which moves an edge
+;;     by less than 1 pixel)
+;;   - GRID: side of the cells of the grid of drops, such
+;;     that close drops are in the same or in adjacent cells
+val NEAR = 2
+val GRID = DROPS_LEN_MAX + NEAR
 
 ;; --------------------------------------------------------
 ;; Helpers
@@ -96,6 +34,23 @@ func phy_rect (p) {
         h = p.y.len,
         anchor = 'NW',
     ])
+}
+
+;; Broad phase: tells if the rects of two physics states are
+;; close (up to NEAR pixels apart). Close rects are candidates
+;; only: the collision itself remains with
+;; `pico.vs.rect.rect`.
+func phy_near (p1, p2) {
+    val x1 = p1.x
+    val x2 = p2.x
+    val y1 = p1.y
+    val y2 = p2.y
+    return (
+        ((x1.pst - x2.pst) <= (x2.len + NEAR)) &&
+        ((x2.pst - x1.pst) <= (x1.len + NEAR)) &&
+        ((y1.pst - y2.pst) <= (y2.len + NEAR)) &&
+        ((y2.pst - y1.pst) <= (y1.len + NEAR))
+    )
 }
 
 ;; Explosion velocity based on distance
@@ -334,7 +289,7 @@ task Drop (cloud_phy, G) {
             }
 
             ;; clamp size
-            val tmax = DROPS_LEN * 4
+            val tmax = DROPS_LEN_MAX
             if phy.x.len > tmax {
                 set phy.x.len = tmax
             }
@@ -624,6 +579,12 @@ task Light (G, pos_ini, direction, magnitude, is_fork) {
 ;; last piece has `late == 0`. Checker 3, which is the heavy
 ;; one, runs only then (once per frame). Checkers 2 and 4
 ;; integrate the time, and run at each piece.
+;; With 300+ drops, there are 100000+ pairs of drops, of
+;; which only a few are close. Checker 3 puts the drops in a
+;; grid, by the cell of their positions, and compares each
+;; drop only with those in the 3x3 cells around it, first as
+;; plain numbers (as in `phy_near`). A wrong cell (two cells
+;; with the same key) only adds candidates.
 task Collisions (G) {
     par {
         ;; cloud vs cloud
@@ -680,54 +641,95 @@ task Collisions (G) {
                 val car = G.car.pub.phy
 
                 ;; the drops of the frame, by index, with
-                ;; their rects in the broad phase
+                ;; their rects as plain numbers, and the
+                ;; grid with the indexes in each cell
                 pin ds = []
+                val xs = []
+                val ys = []
+                val ws = []
+                val hs = []
+                val grid = []
                 loop _,d in G.drops {
                     val p = d.pub.phy
-                    near_set(#ds, p.x.pst, p.y.pst,
-                                  p.x.len, p.y.len)
-                    set ds@+ = d
+                    val i = #ds
+                    set ds@i = d
+                    set xs@i = p.x.pst
+                    set ys@i = p.y.pst
+                    set ws@i = p.x.len + NEAR
+                    set hs@i = p.y.len + NEAR
+                    val k = ((p.x.pst // GRID) * 4096)
+                            + (p.y.pst // GRID)
+                    val c = grid@k
+                    if c == nil {
+                        set grid@k = [i]
+                    } else {
+                        set c@+ = i
+                    }
                 }
 
                 loop i,d1 in ds {
-                    ;; drop vs drop (only those close to d1)
-                    loop _,j in near_get(i, #ds) {
-                        val d2 = ds@j
-                        if pico.vs.rect.rect(
-                               phy_rect(d1.pub.phy),
-                               phy_rect(d2.pub.phy)) {
-                            if d1.pub.has_collided {
-                                set d1.pub.phy.x.vel = 50
-                            }
-                            if d2.pub.has_collided {
-                                set d2.pub.phy.x.vel = -50
+                    val p1 = d1.pub.phy
+                    val x1 = xs@i
+                    val y1 = ys@i
+                    val w1 = ws@i
+                    val h1 = hs@i
+
+                    ;; drop vs drop (only those in the
+                    ;; 3x3 cells around d1)
+                    val cx = x1 // GRID
+                    val cy = y1 // GRID
+                    loop gx in (cx-1, cx+1) {
+                        loop gy in (cy-1, cy+1) {
+                            val c = grid@((gx * 4096) + gy)
+                            if c != nil {
+                                loop _,j in c {
+                                    if ((x1 - xs@j) <= ws@j)
+                                       && ((xs@j - x1) <= w1)
+                                       && ((y1 - ys@j) <= hs@j)
+                                       && ((ys@j - y1) <= h1)
+                                       && (j != i) {
+                                        val d2 = ds@j
+                                        if pico.vs.rect.rect(
+                                               phy_rect(p1),
+                                               phy_rect(d2.pub.phy)) {
+                                            if d1.pub.has_collided {
+                                                set p1.x.vel = 50
+                                            }
+                                            if d2.pub.has_collided {
+                                                set d2.pub.phy.x.vel = -50
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
 
                     ;; drop vs car
-                    if pico.vs.rect.rect(
-                           phy_rect(d1.pub.phy),
-                           phy_rect(car)) {
-                        if d1.pub.phy.y.pst
-                           < car.y.pst {
-                            set d1.pub.phy.y.pst =
-                                car.y.pst
-                                - d1.pub.phy.y.len
-                            set d1.pub.phy.y.vel =
-                                -(d1.pub.phy.y.vel / 3)
-                            set d1.pub.phy.x.vel =
-                                car.x.vel / 2
+                    if phy_near(p1, car)
+                       && pico.vs.rect.rect(
+                              phy_rect(p1),
+                              phy_rect(car)) {
+                        if p1.y.pst < car.y.pst {
+                            set p1.y.pst =
+                                car.y.pst - p1.y.len
+                            set p1.y.vel = -(p1.y.vel / 3)
+                            set p1.x.vel = car.x.vel / 2
                             set d1.pub.has_collided = true
 
-                            ;; d1 moved
-                            val p = d1.pub.phy
-                            near_set(i, p.x.pst, p.y.pst,
-                                        p.x.len, p.y.len)
+                            ;; d1 moved: also in the new cell
+                            set ys@i = p1.y.pst
+                            val k = (cx * 4096)
+                                    + (p1.y.pst // GRID)
+                            val c = grid@k
+                            if c == nil {
+                                set grid@k = [i]
+                            } else {
+                                set c@+ = i
+                            }
                         } else {
-                            set d1.pub.phy.x.vel =
-                                car.x.vel * 2
-                            set d1.pub.phy.y.vel =
+                            set p1.x.vel = car.x.vel * 2
+                            set p1.y.vel =
                                 -(math.abs(car.x.vel))
                         }
                     }
@@ -740,7 +742,8 @@ task Collisions (G) {
             val dt = us / 1000
             loop _,boom in G.booms {
                 loop _,d1 in G.drops {
-                    if pico.vs.rect.rect(
+                    if phy_near(d1.pub.phy, boom.pub.phy)
+                       && pico.vs.rect.rect(
                            phy_rect(d1.pub.phy),
                            phy_rect(boom.pub.phy)) {
                         val vel = Boom_Vel(
