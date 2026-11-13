@@ -31,6 +31,11 @@
 ;; `sup=` and `crop=` in `pico.layer.screenshot`. The first name prevails if
 ;; both are given.
 ;;
+;; The field `font` of `pico.set.pencil` is a font, the path of a TTF file,
+;; or the tag `:default` for the built-in font (the string 'default', which
+;; therefore is never a path: use './default' for such a file). The built-in
+;; font comes back as `nil` in `pico.get.pencil().font`.
+;;
 ;; `pico.get.keyboard()` polls the modifiers only: its `key` is always the
 ;; empty string (the key itself only comes in the events `:key.dn`/`:key.up`).
 ;;
@@ -1498,12 +1503,15 @@ static AStatus l_set_pencil (AFunc* self, int argc, AVal* argv) {
     if (color.type != A_NIL) {
         PA_TRY(pa_color(color, &xcolor));
     }
-    if (font.type == A_STR) {
+    int dfont = (font.type==A_STR && !strcmp(A_STR_OF(font)->s,"default"));
+    if (dfont) {
+        // :default, the built-in font
+    } else if (font.type == A_STR) {
         PA_TRY(pa_file(A_STR_OF(font)->s));
     } else if (font.type == A_NAT) {
         PA_TRY(pa_res(font, PA_KIND_FNT, &xfont));
-    } else if (font.type!=A_NIL && a_truthy(font)) {
-        return a_error("%s : invalid font : expected font, path, or false",
+    } else if (font.type != A_NIL) {
+        return a_error("%s : invalid font : expected font, path, or :default",
             PA_FN);
     }
     if (style.type != A_NIL) {
@@ -1514,7 +1522,7 @@ static AStatus l_set_pencil (AFunc* self, int argc, AVal* argv) {
         pico_set_pencil_color(xcolor);
     }
     if (font.type != A_NIL) {
-        if (font.type == A_STR) {
+        if (font.type==A_STR && !dfont) {
             pico_set_pencil_font_path(A_STR_OF(font)->s);
         } else {
             pico_set_pencil_font((xfont == NULL) ? NULL : xfont->ptr);
@@ -1524,7 +1532,7 @@ static AStatus l_set_pencil (AFunc* self, int argc, AVal* argv) {
         }
         pa_res_unref(PA.cur->fres);
         PA.cur->fres = xfont;
-        a_cpy(&PA.cur->font, a_truthy(font) ? font : a_nil());
+        a_cpy(&PA.cur->font, dfont ? a_nil() : font);
     }
     if (style.type != A_NIL) {
         pico_set_pencil_style((PICO_STYLE) xstyle);
@@ -2565,7 +2573,7 @@ val pico = [
         expert = `:value a_func(l_set_expert, 0)`,  ;; (on [, fps]) -> ms of a frame
         layer  = `:value a_func(l_set_layer,  0)`,  ;; (layer) -> the previous one
         mouse  = `:value a_func(l_set_mouse,  0)`,  ;; ([layer,] pos)
-        ;; font: a font, a path, or false (the built-in font)
+        ;; font: a font, a path, or :default (the built-in font)
         pencil = `:value a_func(l_set_pencil, 0)`,  ;; [color=, font=, style='fill'|'stroke']
         scene  = `:value a_func(l_set_scene,  0)`,  ;; [dim=, tile=, target=, source=, clip=, clear=]
         video  = `:value a_func(l_set_video,  0)`,  ;; (layer, frame) -> boolean

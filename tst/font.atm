@@ -49,10 +49,10 @@ do {
     pico.check("font-04")
 }
 
-;; pico.set.pencil [font=false]: resets to the built-in font
+;; pico.set.pencil [font=:default]: resets to the built-in font
 do {
     assert(pico.get.pencil().font == FONT)
-    pico.set.pencil [ font=false ]
+    pico.set.pencil [ font=:default ]
     assert(pico.get.pencil().font == nil)
     pico.output.clear()
     pico.output.draw.text("hg - gh", ['!', x=10, y=10, w=0, h=10, anchor='NW'])
@@ -74,7 +74,7 @@ do {
     assert(!ok)
     print(err)
 
-    pico.set.pencil [ font=false ]
+    pico.set.pencil [ font=:default ]
     pico.font.free(f)
     val ok2, err2 = catch true { pico.set.pencil [ font=f ] }
     assert(!ok2)
@@ -86,6 +86,27 @@ do {
     val ok, err = catch true { pico.set.pencil [ font="no-such-font.ttf" ] }
     assert(!ok)
     print(err)
+
+    ;; `false` no longer selects the built-in font: a wrong type as any other
+    func bad (v) {
+        val ok, err = catch true { pico.set.pencil [ font=v ] }
+        assert(!ok, "expected error")
+        assert(string.find(err, "invalid font : expected font, path, or :default"), err)
+        print(err)
+    }
+    pico.set.pencil [ font=FONT ]
+    bad(false)
+    bad(true)
+    bad(10)
+    bad([])
+    assert(pico.get.pencil().font == FONT)      ;; unchanged by the errors
+
+    ;; a tag is a string: 'default' is the built-in font, never a path
+    pico.set.pencil [ font='default' ]
+    assert(pico.get.pencil().font == nil)
+    pico.output.clear()
+    pico.output.draw.text("hg - gh", ['!', x=10, y=10, w=0, h=10, anchor='NW'])
+    pico.check("font-01")
 }
 
 pico.close()

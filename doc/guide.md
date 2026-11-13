@@ -308,12 +308,12 @@ Note that `pico-atmos` preserves the correct text aspect ratio when we omit the
 width `w`.
 
 The field `font` also accepts a font loaded with `pico.font.load(path)`, or
-`false` to switch back to the built-in font:
+the tag `:default` to switch back to the built-in font:
 
 ```
 val font = pico.font.load('../c/res/DejaVuSans.ttf')
 pico.set.pencil [ font=font ]       ;; same effect as the path
-pico.set.pencil [ font=false ]      ;; back to the built-in font
+pico.set.pencil [ font=:default ]   ;; back to the built-in font
 ```
 
 To draw an [image](../c/res/open.png), we call `pico.output.draw.image`:

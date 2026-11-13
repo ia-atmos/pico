@@ -174,7 +174,7 @@ do {
     assert(pico.get.pencil().font == nil)   ;; but its value is gone
     pico.output.draw.text("abc", ['!', x=10, y=10, h=10, anchor='NW'])
     assert(shot("7-text") != empty)
-    pico.set.pencil [ font=false ]
+    pico.set.pencil [ font=:default ]
     pico.output.clear()
 
     ;; the font of a layer that is dropped goes with it
