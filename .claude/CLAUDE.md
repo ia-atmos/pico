@@ -24,12 +24,21 @@ gcc /path/to/program.c -I c/src -L c/src -lpico-sdl \
     -lm -lSDL2 -lSDL2_ttf -lSDL2_image -lSDL2_mixer -lSDL2_gfx
 ```
 
+### Atmos Programs
+
+The binding is `pico.atm`; the compiler is https://github.com/ia-atmos/lang.
+
+```bash
+ATMOS=/path/to/atmos ./pico-atmos path/to/program.atm
+```
+
 ## Tests
 
 ### Running
 
 ```bash
-cd c/ && make tests
+cd c/ && make tests                     # C library
+ATMOS=/path/to/atmos tst/run.sh [name]  # Atmos binding (tst/*.atm)
 ```
 
 ### Visual Regression

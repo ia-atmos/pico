@@ -8,7 +8,9 @@ A 2D graphics library for [Atmos][atmos], built on [pico-sdl](c/).
   documents the API).
 - [`pico-atmos`](pico-atmos): builds and runs an Atmos program with the
   binding.
-- [`tst/`](tst/): tests of the binding.
+- [`doc/guide.md`](doc/guide.md): a tutorial;
+  [`doc/api.md`](doc/api.md): the reference.
+- [`tst/`](tst/): tests of the binding (`ATMOS=/path/to/atmos tst/run.sh`).
 - [`c/`](c/): the C library (`pico-sdl`), with its tests and documentation.
 - Games:
     - [`exs/birds/`](exs/birds/): a tutorial in 11 steps

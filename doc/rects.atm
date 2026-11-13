@@ -1,0 +1,51 @@
+;; rects.atm
+;; Two pixels on a 10x10 screen: one follows the mouse, the other responds to
+;; the arrow keys (guide.md, section 8.2).
+;;
+;;      pico-atmos rects.atm
+
+include "../pico.atm"
+
+pico.open [ title="2x Rects" ]
+
+pico.set.expert(true)
+pico.set.layer(pico.layer.window())
+pico.set.scene [ dim=['!', w=200, h=200] ]
+pico.set.layer(pico.layer.world())
+pico.set.scene [ dim=['!', w=10,  h=10]  ]
+
+val R = pico.color.alpha('red',  0xCC)
+val B = pico.color.alpha('blue', 0xCC)
+
+val k = ['!', x=4, y=4]         ;; arrow-key pixel (centered)
+var m = ['!', x=5, y=5]         ;; mouse pixel
+
+loop {
+    pico.output.clear()
+    pico.set.pencil [ color=R ]
+    pico.output.draw.pixel(m)
+    pico.set.pencil [ color=B ]
+    pico.output.draw.pixel(k)
+    pico.output.present()
+
+    val e = pico.input.event()
+    assert(e, "no FPS set here")
+    ifs {
+        e.tag == 'quit' => {
+            break
+        }
+        e.tag == 'mouse.motion' => {
+            set m = pico.get.mouse('!')
+        }
+        e.tag == 'key.dn' => {
+            match e.key {
+                'Up'    => { set k.y = k.y - 1 }
+                'Down'  => { set k.y = k.y + 1 }
+                'Left'  => { set k.x = k.x - 1 }
+                'Right' => { set k.x = k.x + 1 }
+            }
+        }
+    }
+}
+
+pico.close()
