@@ -1,0 +1,110 @@
+require "atmos.env.pico"
+set pico = require "pico"
+
+set W, H = (640, 480)
+
+pico.set.window [ title="The Battle of Ships" ]
+pico.set.dim ['!', w=640, h=480]
+
+math.randomseed()
+
+val Battle = require "battle" ;; actual battle gameplay
+
+spawn {    ;; BACKGROUND
+    ;;;
+    ;; This task is the first to spawn, which makes the background image to
+    ;; always be rendered first.
+    ;;;
+    val p = [ '%', x=0.5, y=0.5 ]
+    loop on :draw {
+        pico.output.draw.image("imgs/bg.png", p)
+    }
+}
+
+val points = [ L=0, R=0 ]
+
+spawn {    ;; POINTS
+    ;;;
+    ;; Spawns the players points and place them at the bottom of the screen, in
+    ;; opposite sides.
+    ;; Points are incremented when the ship of the opponent is destroyed.
+    ;; Since points must outlive each individual battle, we spawn them here,
+    ;; outside the main game loop.
+    ;;;
+    val l = [ '%', x=0.1, y=0.9, h=0.075 ]
+    val r = [ '%', x=0.9, y=0.9, h=0.075 ]
+    loop on :draw {
+        pico.set.pencil [ color="white" ]
+        pico.output.draw.text.dyn("/points-L", points.L, l)
+        pico.output.draw.text.dyn("/points-R", points.R, r)
+    }
+}
+
+;; MAIN-LOOP
+;;;
+;; Starts the main game loop:
+;;  - Shows the "press to start" message.
+;;  - Runs the next battle with the actual gameplay.
+;;  - Restarts whenever one of the ships is destroyed.
+;;;
+loop {
+    ;; ENTER-TO-START
+    watching :key.dn [key=:Return] {
+        ;;;
+        ;; Spawns the blinking message, and awaits a :Return press.
+        ;;;
+        loop {
+            ;; 500ms on
+            watching 500ms {
+                val p = [ '%', x=0.5, y=0.5, h=0.075 ]
+                loop on :draw {
+                    pico.set.pencil [ color="white" ]
+                    pico.output.draw.text.fix("= PRESS ENTER TO START =", p)
+                }
+            }
+            ;; 500ms off
+            await 500ms
+        }
+    }
+
+    ;; Plays the restart sound.
+    pico.output.sound "snds/start.wav"
+
+    ;; spawns the actual battle
+    pin battle = spawn Battle()
+
+    ;; Pause with 'P':
+    ;;  * awaits 'P' to toggle battle off
+    ;;  * shows a "paused" image
+    ;;  * awaits 'P' to toggle battle on
+    spawn {
+        loop {
+            await(:key.dn [key='P'])
+            toggle battle(false)
+            spawn {
+                val p = [ '%', x=0.5, y=0.5 ]
+                loop on :draw {
+                    pico.output.draw.image("imgs/pause.png", p)
+                }
+            }
+            await(:key.dn [key='P'])
+            toggle battle(true)
+        }
+    }
+
+    ;; Battle terminates:
+    ;;  * awaits battle to return winner
+    ;;  * increments winner points
+    ;;  * awaits 1s before next battle
+    val winner = await(battle)
+    set points@winner = points@winner + 1
+    await 1s
+
+    ;;;
+    ;; Restarts the main loop.
+    ;; Due to lexical memory management, only the points are preserved
+    ;; between loop iterations.
+    ;; All other tasks are guaranteed to abort and be reclaimed after this
+    ;; point.
+    ;;;
+}

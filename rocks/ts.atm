@@ -1,0 +1,195 @@
+val SHIP_FRAMES   = 4
+val SHIP_ACC_DIV  = 10
+val SHIP_VEL_MAX  = [ '%', x=0.4, y=0.4 ]
+val SHOT_COLOR    = [ r=0xFF, g=0xFF, b=0x88 ]
+val METEOR_FRAMES = 6
+val METEOR_AWAIT  = 5000
+
+func between (min, v, max) {
+    ifs {
+        v < min => min
+        v > max => max
+        else    => v
+    }
+}
+
+func random_signal () {
+    if (math.random(0,1) == 1) => 1 => -1
+}
+
+;; Simple "physics" to update Meteor/Shot `rect` position based on `vel` speed:
+;;  * updates rect every 'step' frame
+;;  * terminates when rect leaves the screen
+
+task Move_T (rect, vel) {
+    watching until (out_of_screen()) {
+        loop us on :clock {
+            val dt = us / 1000000
+            set rect.x = rect.x + (vel.x * dt)
+            set rect.y = rect.y + (vel.y * dt)
+        }
+    } where {
+        out_of_screen = func () {
+            ifs {
+                rect.x < 0 => true
+                rect.x > 1 => true
+                rect.y < 0 => true
+                rect.y > 1 => true
+                else       => false
+            }
+        }
+    }
+}
+
+val meteors = pico.layer.images [
+    key   = "meteor",
+    path  = "imgs/meteor.gif",
+    sheet = ['#', w=METEOR_FRAMES, h=1],
+]
+
+task Meteor () {
+    val y_sig = random_signal()
+
+    val vx = (math.random()/5) * random_signal()
+    val vy = (math.random()/5) * y_sig
+
+    var frame = 1
+
+    val rect = [ '%', x=x, y=y, w=0.075, h=0.075 ] where {
+        x = math.random()
+        y = if y_sig==1 => 0 => 1
+    }
+    set pub = [
+        tag  = :M,
+        rect = rect,
+    ]
+
+    par :any {
+        val dt = math.random(1, METEOR_AWAIT)
+        await (dt * 1ms)
+        par :any {
+            await Move_T(rect, [x=vx,y=vy])
+        } with {
+            await :collided
+            pico.output.sound "snds/meteor.wav"
+        }
+    } with {
+        loop on :draw {
+            pico.output.draw.layer(meteors@frame, rect)
+        }
+    } with {
+        val v = ((vx->math.pow(2)) + (vy->math.pow(2))) --> math.pow(1/2)
+        var x = 0
+        loop us on :clock {
+            set x = x + (v * (us/1000))
+            set frame = ((x//50) % METEOR_FRAMES) + 1
+        }
+    }
+}
+
+task Shot (V, pos, vy) {
+    pico.output.sound "snds/shot.wav"
+    val rect = [ '%', x=pos.x, y=pos.y, w=0.02, h=0.01 ]
+    set pub = [
+        tag  = V.tag,
+        rect = rect,
+    ]
+    par :any {
+        await :collided
+    } with {
+        await Move_T(rect, [x=V.x*0.33, y=vy])
+    } with {
+        loop on :draw {
+            pico.set.pencil [ color=SHOT_COLOR ]
+            pico.output.draw.rect(rect)
+        }
+    }
+}
+
+val ships = [
+    @("imgs/ship-L.gif") = pico.layer.images [
+        key   = "imgs/ship-L.gif",
+        path  = "imgs/ship-L.gif",
+        sheet = ['#', w=1, h=SHIP_FRAMES],
+    ],
+    @("imgs/ship-R.gif") = pico.layer.images [
+        key   = "imgs/ship-R.gif",
+        path  = "imgs/ship-R.gif",
+        sheet = ['#', w=1, h=SHIP_FRAMES],
+    ],
+]
+
+task Ship (V, shots) {
+    val frames = ships@(V.img)
+    val vel = [x=0,y=0]
+    val rect = [ '%', x=V.pos, y=0.5, w=0.075, h=0.075 ]
+
+    set pub = [
+        tag  = V.tag,
+        rect = rect,
+    ]
+
+    var acc = [x=0,y=0]
+    var key
+    spawn {
+        par {
+            loop it on :key.dn {
+                match it.key {
+                    V.ctl.shot   => spawn @shots Shot(V.shot, ['%',x=rect.x,y=rect.y], vel.y)
+                    V.ctl.move.l => set acc.x = -0.1
+                    V.ctl.move.r => set acc.x =  0.1
+                    V.ctl.move.u => set acc.y = -0.1
+                    V.ctl.move.d => set acc.y =  0.1
+                }
+                set key = it.key
+            }
+        } with {
+            loop on :key.up {
+                set key = nil
+                set acc = [x=0,y=0]
+            }
+        }
+    }
+
+    watching :collided {
+        par {
+            loop on :draw {
+                val frame = match key {
+                    V.ctl.move.l => V.ctl.frame.l
+                    V.ctl.move.r => V.ctl.frame.r
+                    V.ctl.move.u => V.ctl.frame.u
+                    V.ctl.move.d => V.ctl.frame.d
+                    else => 0
+                }
+                pico.output.draw.layer(frames@(frame+1), rect)
+            }
+        } with {
+            loop us on :clock {
+                val dt = us / 1000000
+                set vel.x = between(-SHIP_VEL_MAX.x, vel.x+(acc.x*dt), SHIP_VEL_MAX.x)
+                set vel.y = between(-SHIP_VEL_MAX.y, vel.y+(acc.y*dt), SHIP_VEL_MAX.y)
+
+                val x = rect.x + (vel.x*dt)
+                val y = rect.y + (vel.y*dt)
+                set rect.x = between(V.lim.x1, x, V.lim.x2)
+                set rect.y = between(0.04, y, 0.96)
+            }
+        }
+    }
+
+    watching 100ms {
+        var d = 0
+        par {
+            loop us on :clock {
+                set d = d + ((us/1000)/500)
+            }
+        } with {
+            loop on :draw {
+                pico.set.pencil [ color="red" ]
+                pico.output.draw.oval [ '%', x=rect.x, y=rect.y, w=d, h=d ]
+            }
+        }
+    }
+
+    pub.tag
+}

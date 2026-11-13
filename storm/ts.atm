@@ -1,0 +1,658 @@
+;;
+;; ts.atm — Entity functions for pico-storm
+;;
+;; Ported from ceu-sdl-storm (Céu + SDL) to pico-atmos.
+;; Original by Psyny: https://github.com/psyny
+;;
+
+val DROPS_PERSEC_MIN =  10
+val DROPS_PERSEC_MAX = 100
+val DROPS_DECAY_MS   = 2000
+val DROPS_LEN        = 2
+
+;; --------------------------------------------------------
+;; Helpers
+;; --------------------------------------------------------
+
+;; Build a pico rect from physics state
+func phy_rect (p) {
+    return (@{
+        '!',
+        x = p.x.pst,
+        y = p.y.pst,
+        w = p.x.len,
+        h = p.y.len,
+    })
+}
+
+;; Explosion velocity based on distance
+func Boom_Vel (boom, other, G) {
+    val radius    = 80
+    val magnitude = 20
+
+    val c1 = @{
+        x = boom.x.pst + (boom.x.len / 2),
+        y = boom.y.pst + (boom.y.len / 2),
+    }
+    val c2 = @{
+        x = other.x.pst + (other.x.len / 2),
+        y = other.y.pst + (other.y.len / 2),
+    }
+
+    val dist = math.sqrt(
+        ((c2.x - c1.x) ** 2) + ((c2.y - c1.y) ** 2)
+    )
+
+    var pct = dist / radius
+    if pct > 1 {
+        return (@{ x=0, y=0 })
+    } else {
+        if pct < 0.1 {
+            set pct = 0.1
+        }
+    }
+    set pct = 1.0 - math.cos(pct * G.PI)
+
+    val vel = @{
+        x = math.cos(pct) * magnitude,
+        y = math.sin(pct) * magnitude * -1,
+    }
+    if c2.x < c1.x {
+        set vel.x = -(vel.x)
+    }
+    if c2.y < c1.y {
+        set vel.y = -(vel.y)
+    }
+
+    return (vel)
+}
+
+;; --------------------------------------------------------
+;; Physics
+;; --------------------------------------------------------
+
+;; Updates velocity/position each frame, renders as rect.
+;; Receives a mutable state table:
+;;   @{ x=@{pst,len,vel,acc,drag},
+;;      y=@{pst,len,vel,acc,drag}, clr }
+func Physics (state) {
+    par {
+        every _,ms in :clock {
+            val dt = ms / 1000
+            set state.x.vel =
+                (state.x.vel + (state.x.acc * dt))
+                * (1 - (state.x.drag * dt))
+            set state.y.vel =
+                (state.y.vel + (state.y.acc * dt))
+                * (1 - (state.y.drag * dt))
+            set state.x.pst =
+                state.x.pst + (state.x.vel * dt)
+            set state.y.pst =
+                state.y.pst + (state.y.vel * dt)
+        }
+    } with {
+        every :draw {
+            if state.clr != nil {
+                pico.zet.color.draw(state.clr)
+                pico.output.draw.rect @{
+                    '!',
+                    x = state.x.pst,
+                    y = state.y.pst,
+                    w = state.x.len,
+                    h = state.y.len,
+                }
+            }
+        }
+    }
+}
+
+;; --------------------------------------------------------
+;; Wheel
+;; --------------------------------------------------------
+
+;; 12 rotating dots around a point on the car.
+func Wheel (car_phy, offset, G) {
+    val radius = 15
+    val esp = (2 * G.PI) / 12
+    var pst = 0
+
+    par {
+        every _,ms in :clock {
+            val dt = ms / 1000
+            val s = if car_phy.x.vel >= 0 => 1 => -1
+            val mod = math.sqrt(
+                (car_phy.x.vel ** 2)
+                + (car_phy.y.vel ** 2)
+            )
+            set pst = pst + (s * mod * dt / radius)
+        }
+    } with {
+        every :draw {
+            pico.zet.color.draw @{
+                r=0xFF, g=0x9D, b=0x46
+            }
+            var i = 0
+            loop {
+                if i >= 12 {
+                    break()
+                }
+                pico.output.draw.rect @{
+                    '!',
+                    x = car_phy.x.pst + offset.x
+                        + (radius * math.cos(
+                            (i * esp) + pst)),
+                    y = car_phy.y.pst + offset.y
+                        + (radius * math.sin(
+                            (i * esp) + pst)),
+                    w = 5,
+                    h = 5,
+                }
+                set i = i + 1
+            }
+        }
+    }
+}
+
+;; --------------------------------------------------------
+;; Car
+;; --------------------------------------------------------
+
+;; Player-controlled car with 2 wheels.
+;; Exposes physics via pub.phy.
+func Car (G) {
+    val phy = @{
+        x = @{
+            pst=320, len=60, vel=0, acc=0, drag=0.95
+        },
+        y = @{
+            pst=430, len=30, vel=0, acc=0, drag=0.95
+        },
+        clr = @{ r=0x3B, g=0xBC, b=0x48 },
+    }
+    set pub = @{ phy=phy }
+
+    spawn Physics(phy)
+    spawn Wheel(phy, @{ x=0, y=phy.y.len }, G)
+    spawn Wheel(phy, @{ x=phy.x.len, y=phy.y.len }, G)
+
+    par {
+        loop {
+            await(:key.dn, 'Left')
+            set phy.x.acc = -400
+            await(:key.up, 'Left')
+            set phy.x.acc = 0
+        }
+    } with {
+        loop {
+            await(:key.dn, 'Right')
+            set phy.x.acc = 400
+            await(:key.up, 'Right')
+            set phy.x.acc = 0
+        }
+    }
+}
+
+;; --------------------------------------------------------
+;; Drop
+;; --------------------------------------------------------
+
+;; A raindrop: falls with gravity, bounces off ground,
+;; stretches based on velocity, decays after bounce.
+func Drop (cloud_phy, G) {
+    val x0 = math.random(0, cloud_phy.x.len - 1)
+              + cloud_phy.x.pst
+    val y0 = cloud_phy.y.pst + cloud_phy.y.len
+
+    val phy = @{
+        x = @{
+            pst  = x0,
+            len  = DROPS_LEN,
+            vel  = cloud_phy.x.vel,
+            acc  = 0,
+            drag = 0.98,
+        },
+        y = @{
+            pst  = y0,
+            len  = 5,
+            vel  = 0,
+            acc  = 500,
+            drag = 0.98,
+        },
+        clr = @{ r=0x98, g=0xC1, b=0xE4 },
+    }
+    set pub = @{
+        phy          = phy,
+        has_collided = false,
+    }
+
+    spawn Physics(phy)
+
+    par_or {
+        every _,ms in :clock {
+            ;; bounce off ground
+            if phy.y.pst > (G.H - DROPS_LEN) {
+                set phy.y.pst = G.H - DROPS_LEN
+                set phy.y.vel = -(phy.y.vel * 2 / 3)
+                set pub.has_collided = true
+            }
+
+            ;; out of bounds
+            if (phy.x.pst > G.W)
+               || (phy.x.pst < 0)
+               || (phy.y.pst < 0) {
+                break()
+            }
+
+            ;; stretch based on velocity
+            val abs_vx = math.abs(phy.x.vel)
+            val abs_vy = math.abs(phy.y.vel)
+            if abs_vx > abs_vy {
+                set phy.x.len =
+                    DROPS_LEN * (1 + ((abs_vx - abs_vy)
+                                      / 100))
+                set phy.y.len = DROPS_LEN
+            } else {
+                set phy.x.len = DROPS_LEN
+                set phy.y.len =
+                    DROPS_LEN * (1 + ((abs_vy - abs_vx)
+                                      / 100))
+            }
+
+            ;; clamp size
+            val tmax = DROPS_LEN * 4
+            if phy.x.len > tmax {
+                set phy.x.len = tmax
+            }
+            if phy.y.len > tmax {
+                set phy.y.len = tmax
+            }
+        }
+    } with {
+        ;; decay: wait for ground hit, then fade out
+        watching \{pub.has_collided} {
+            await(false)
+        }
+        await @.DROPS_DECAY_MS
+    }
+}
+
+;; --------------------------------------------------------
+;; Cloud
+;; --------------------------------------------------------
+
+;; A rain cloud: spawns drops, blinks on collision,
+;; adjusts drop frequency over time.
+func Cloud (dps_, G) {
+    var dps = dps_
+
+    val maxy = 2 * 1000 / DROPS_PERSEC_MIN
+
+    val freq_ini = 1000 / dps
+    var freq_cur = freq_ini
+    var ty = maxy - (freq_cur * 2)
+    if ty < 1 {
+        set ty = 1
+    }
+
+    val w = 100 + math.random(0, 99)
+    val phy = @{
+        x = @{
+            pst  = -(w),
+            len  = 100 + math.random(0, 99),
+            vel  = 10 + math.random(0, 49),
+            acc  = 0,
+            drag = 0,
+        },
+        y = @{
+            pst  = ty,
+            len  = 20 + math.random(0, 49),
+            vel  = 0,
+            acc  = 0,
+            drag = 0,
+        },
+        clr = do {
+            val v = 200 - ((200 * ty) / maxy)
+            @{ r=v, g=(v * 0.95) // 1, b=v }
+        },
+    }
+    set pub = @{ phy=phy, dps=dps }
+
+    spawn Physics(phy)
+
+    par {
+        ;; wrap around screen
+        every _,ms in :clock {
+            if phy.x.pst > G.W {
+                set phy.x.pst = -(phy.x.len)
+            }
+        }
+    } with {
+        ;; spawn drops at current frequency
+        loop {
+            await @.freq_cur
+            spawn [G.drops] Drop(phy, G)
+        }
+    } with {
+        ;; blink white on :go_blink
+        loop {
+            await :go_blink
+            val old = @{
+                r = phy.clr.r,
+                g = phy.clr.g,
+                b = phy.clr.b,
+            }
+            set phy.clr = @{
+                r=0xFF, g=0xFF, b=0xFF
+            }
+            await @.100
+            set phy.clr = old
+        }
+    } with {
+        ;; adjust frequency when dps changes
+        every @.50 {
+            val new_freq = 1000 / pub.dps
+            if new_freq == freq_cur {
+                ;; no change
+            } else {
+                if math.abs(new_freq - freq_cur) < 1 {
+                    set freq_cur = new_freq
+                } else {
+                    if (new_freq - freq_cur) > 0 {
+                        set freq_cur = freq_cur + 1
+                    } else {
+                        set freq_cur = freq_cur - 1
+                    }
+                }
+
+                set ty = maxy - (freq_cur * 2)
+                if ty < 1 {
+                    set ty = 1
+                }
+                set phy.y.pst = ty
+                set phy.clr = @{
+                    r = 200 - ((200 * ty) / maxy),
+                    g = (phy.clr.r * 0.95) // 1,
+                    b = phy.clr.r,
+                }
+            }
+        }
+    }
+}
+
+;; --------------------------------------------------------
+;; Clouds
+;; --------------------------------------------------------
+
+;; Spawns 3 clouds, periodically redistributes drop rates.
+func Clouds (G) {
+    var dps_cur = 0
+
+    var i = 0
+    loop {
+        if i >= 3 {
+            break()
+        }
+        val dps = math.random(
+            DROPS_PERSEC_MIN,
+            DROPS_PERSEC_MAX - dps_cur
+        )
+        set dps_cur = dps_cur + dps
+        if dps_cur > DROPS_PERSEC_MAX {
+            set dps_cur = DROPS_PERSEC_MAX
+        }
+        spawn [G.clouds] Cloud(dps, G)
+        set i = i + 1
+    }
+
+    ;; periodically redistribute drop rates
+    loop {
+        val secs = math.random(1, 10)
+        await @.secs
+        loop _,cloud in G.clouds {
+            if math.random(0, 2) == 0 {
+                ;; skip 1 in 3
+            } else {
+                set dps_cur = dps_cur - cloud.pub.dps
+                if dps_cur < DROPS_PERSEC_MIN {
+                    set dps_cur = DROPS_PERSEC_MIN
+                }
+                val dps = math.random(
+                    DROPS_PERSEC_MIN,
+                    DROPS_PERSEC_MAX - dps_cur
+                      + DROPS_PERSEC_MIN
+                )
+                set dps_cur = dps_cur + dps
+                if dps_cur > DROPS_PERSEC_MAX {
+                    set dps_cur = DROPS_PERSEC_MAX
+                }
+                set cloud.pub.dps = dps
+            }
+        }
+        print("Drops per second: "
+              ++ dps_cur ++ "/" ++ DROPS_PERSEC_MAX)
+    }
+}
+
+;; --------------------------------------------------------
+;; Boom
+;; --------------------------------------------------------
+
+;; Ground explosion: invisible physics body, lasts 100ms.
+func Boom (x, G) {
+    val radius = 80
+    val phy = @{
+        x = @{
+            pst  = x - radius,
+            len  = radius * 2,
+            vel  = 0,
+            acc  = 0,
+            drag = 0,
+        },
+        y = @{
+            pst  = (G.H + (radius * 0.2) - radius)
+                   // 1,
+            len  = radius * 2,
+            vel  = 0,
+            acc  = 0,
+            drag = 0,
+        },
+        clr = nil,
+    }
+    set pub = @{ phy=phy }
+
+    spawn Physics(phy)
+    await @.100
+}
+
+;; --------------------------------------------------------
+;; Light
+;; --------------------------------------------------------
+
+;; Recursive lightning bolt segment.
+;; Spawns next segments + forks, Boom on ground hit.
+func Light (G, pos_ini, direction, magnitude, is_fork) {
+    val dir = direction
+    val mag = magnitude
+    val fork = is_fork
+
+    val chaos = 30
+    val d = G.PI
+            * (dir - chaos + math.random(0, chaos * 2))
+            / 180.0
+    val pos_end = @{
+        x = pos_ini.x + (math.cos(d) * mag),
+        y = pos_ini.y - (math.sin(d) * mag),
+    }
+
+    watching @.150 {
+        par {
+            if pos_end.y >= G.H {
+                ;; hit ground: spawn explosion
+                if !fork {
+                    spawn [G.booms] Boom(
+                        (pos_ini.x + pos_end.x) / 2, G
+                    )
+                }
+            } else {
+                if mag > 5 {
+                    await @.20
+
+                    ;; next segment
+                    val m = if fork
+                        => (mag * 0.75) // 1
+                        => mag
+                    spawn [G.lights] Light(
+                        G, pos_end, dir, m, fork
+                    )
+
+                    ;; possible fork
+                    if math.random(0, G.H - 1)
+                       > pos_ini.y {
+                        spawn [G.lights] Light(
+                            G, pos_ini,
+                            math.random(180, 359),
+                            (mag * 0.5) // 1,
+                            true
+                        )
+                    }
+                }
+            }
+            await(false)
+        } with {
+            every :draw {
+                pico.zet.color.draw @{
+                    r=0xEA, g=0xD7, b=0xFF
+                }
+                pico.output.draw.line(
+                    @{ '!',
+                       x=pos_ini.x, y=pos_ini.y },
+                    @{ '!',
+                       x=pos_end.x, y=pos_end.y }
+                )
+            }
+        }
+    }
+}
+
+;; --------------------------------------------------------
+;; Collisions
+;; --------------------------------------------------------
+
+;; Three parallel collision checkers:
+;;   1. cloud vs cloud  -> blink + lightning
+;;   2. car   vs boom   -> push car
+;;   3. drop  vs drop/car/boom
+func Collisions (G) {
+    par {
+        ;; cloud vs cloud
+        loop {
+            val secs = math.random(0, 2)
+            await @.secs
+            loop _,c1 in G.clouds {
+                loop _,c2 in G.clouds {
+                    if (c1 != c2)
+                       && pico.vs.rect_rect(
+                              phy_rect(c1.pub.phy),
+                              phy_rect(c2.pub.phy)) {
+                        emit [c1] :go_blink
+                        emit [c2] :go_blink
+                        val pos = @{
+                            x = (c1.pub.phy.x.pst
+                                 + c2.pub.phy.x.pst
+                                 + c2.pub.phy.x.len)
+                                / 2,
+                            y = (c1.pub.phy.y.pst
+                                 + c1.pub.phy.y.len
+                                 + c2.pub.phy.y.pst
+                                 + c2.pub.phy.y.len)
+                                / 2,
+                        }
+                        spawn [G.lights] Light(
+                            G, pos, 270, 50, false
+                        )
+                    }
+                }
+            }
+        }
+    } with {
+        ;; car vs boom
+        every _,ms in :clock {
+            val dt = ms
+            val car = G.car.pub.phy
+            loop _,boom in G.booms {
+                if pico.vs.rect_rect(
+                       phy_rect(boom.pub.phy),
+                       phy_rect(car)) {
+                    val vel = Boom_Vel(
+                        boom.pub.phy, car, G
+                    )
+                    set car.x.vel =
+                        car.x.vel + (vel.x * dt / 20)
+                }
+            }
+        }
+    } with {
+        ;; drop vs drop / car / boom
+        every _,ms in :clock {
+            val dt = ms
+            val car = G.car.pub.phy
+
+            loop _,d1 in G.drops {
+                ;; drop vs drop
+                loop _,d2 in G.drops {
+                    if (d1 != d2)
+                       && pico.vs.rect_rect(
+                              phy_rect(d1.pub.phy),
+                              phy_rect(d2.pub.phy)) {
+                        if d1.pub.has_collided {
+                            set d1.pub.phy.x.vel = 50
+                        }
+                        if d2.pub.has_collided {
+                            set d2.pub.phy.x.vel = -50
+                        }
+                    }
+                }
+
+                ;; drop vs car
+                if pico.vs.rect_rect(
+                       phy_rect(d1.pub.phy),
+                       phy_rect(car)) {
+                    if d1.pub.phy.y.pst
+                       < car.y.pst {
+                        set d1.pub.phy.y.pst =
+                            car.y.pst
+                            - d1.pub.phy.y.len
+                        set d1.pub.phy.y.vel =
+                            -(d1.pub.phy.y.vel / 3)
+                        set d1.pub.phy.x.vel =
+                            car.x.vel / 2
+                        set d1.pub.has_collided = true
+                    } else {
+                        set d1.pub.phy.x.vel =
+                            car.x.vel * 2
+                        set d1.pub.phy.y.vel =
+                            -(math.abs(car.x.vel))
+                    }
+                }
+
+                ;; drop vs boom
+                loop _,boom in G.booms {
+                    if pico.vs.rect_rect(
+                           phy_rect(d1.pub.phy),
+                           phy_rect(boom.pub.phy)) {
+                        val vel = Boom_Vel(
+                            boom.pub.phy,
+                            d1.pub.phy, G
+                        )
+                        set d1.pub.phy.x.vel =
+                            d1.pub.phy.x.vel
+                            + (vel.x * dt)
+                        set d1.pub.phy.y.vel =
+                            d1.pub.phy.y.vel
+                            + (vel.y * dt)
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,40 @@
+require "atmos.env.pico"
+val pico = require "pico"
+
+pico.set.window [ title="Birds - 04 (bounded)" ]
+pico.set.dim ['!', w=640, h=480]
+
+
+pico.layer.image [ key=:up, path="res/bird-up.png" ]
+pico.layer.image [ key=:dn, path="res/bird-dn.png" ]
+
+math.randomseed()
+
+task Bird (y, speed) {
+    var xx  = 0
+    var yy  = y
+    var img = :dn
+    par {
+        var ang = 0
+        loop us on :clock {
+            val v = (speed * us) / 1000
+            set xx = xx + (v/1000)
+            set yy = y - ((speed * math.sin(ang)) / 5)
+            set ang = ang + ((math.pi*v)/100)
+            val tmp = ((ang+(math.pi/2)) / math.pi) --> math.floor
+            set img = if (tmp%2)==0 => :up => :dn
+        }
+    } with {
+        loop on :draw {
+            pico.output.draw.layer(img, ['%',x=xx,y=yy])
+        }
+    }
+}
+
+pin birds = tasks(5)
+loop on 500ms {
+    spawn @birds Bird(y,s) where {
+        y = math.random()
+        s = 0.15 + (math.random()/10)
+    }
+}

@@ -1,7 +1,13 @@
 v0.8 (xxx/xx)
 -------------
 
-Modifications (C API only, Lua not yet ported):
+Layout:
+
+- repository root is the Atmos binding; the C library moved to `c/`
+- Lua binding removed (`lua/`)
+- games copied in: `birds/`, `rocks/`, `storm/`
+
+Modifications (C API):
 
 - Resources are explicit handles with alloc/free (realms removed):
     - `Pico_Layer*`: `pico_layer_*` constructors return a handle (was
@@ -25,7 +31,7 @@ Modifications (C API only, Lua not yet ported):
       `pico_get_video_path`: receive a path (loaded once, released at
       `pico_close`)
 
-Removals (C API only):
+Removals (C API):
 
 - `pico_push`, `pico_pop`, `pico_unique`
 - all `*_mode` variants (`'!'`, `'='`, `'~'`)

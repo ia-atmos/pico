@@ -14,16 +14,12 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev xvfb lua5.4 liblua5.4-dev valgrind
+        sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev xvfb valgrind
     - name: Run C tests
-      run: make tests
-    - name: Build Lua bindings
-      run: make -C lua pico_native.so
-    - name: Run Lua tests
-      run: make -C lua tests
+      run: make -C c tests
     - name: Upload test screenshots on failure
       if: failure()
       uses: actions/upload-artifact@v4
       with:
         name: test-screenshots
-        path: tst/out/*.png
+        path: c/tst/out/*.png

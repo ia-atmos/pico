@@ -5,7 +5,7 @@
 *.swp
 *.zip
 
-src/libpico-sdl.a
+c/src/libpico-sdl.a
 
 .claude/ok
 .work/
@@ -13,7 +13,7 @@ src/libpico-sdl.a
 .vscode/
 build/
 
-doc/html/
+c/doc/html/
 
-tst/out/*
-!tst/out/.gitkeep
+c/tst/out/*
+!c/tst/out/.gitkeep
