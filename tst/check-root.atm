@@ -1,0 +1,45 @@
+include "../pico.atm"
+
+;; `pico.check` does not depend on the current directory: `pico-atmos`
+;; exports PICO_ROOT, the absolute root of the repository, and the files are
+;; `$PICO_ROOT/c/tst/out/<name>.png` and `$PICO_ROOT/c/tst/asr/<name>.png`.
+
+```:prelude
+#include <unistd.h>
+```
+
+val root = os.getenv("PICO_ROOT")
+assert(root, "PICO_ROOT is not set")
+assert(string.sub(root,0,0) == "/", "PICO_ROOT is not absolute")
+
+func exists (path) {
+    val f = io.open(path, "rb")
+    if f {
+        io.close(f)
+    }
+    !!f
+}
+assert(exists(root ++ "/pico.atm"), "PICO_ROOT is not the root")
+assert(exists(root ++ "/c/tst/asr/init-01.png"))
+
+;; from a directory where the relative paths lead nowhere
+os.remove(root ++ "/c/tst/out/init-01.png")
+assert(`:boolean chdir("/") == 0`)
+assert(!exists("../c/tst/asr/init-01.png"))
+
+pico.open()
+pico.check("init-01")
+assert(exists(root ++ "/c/tst/out/init-01.png"), "no output")
+
+;; a picture with no reference still fails
+do {
+    val ok, err = catch true { pico.check("check-root-none") }
+    if os.getenv("PICO_CHECK_ASR") == "1" {
+        assert(!ok)
+        assert(string.find(err, "FAIL: check-root-none"), err)
+    }
+    os.remove(root ++ "/c/tst/out/check-root-none.png")
+}
+
+print("ok")
+pico.close()

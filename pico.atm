@@ -17,6 +17,23 @@
 ;;      Anchor  'C' 'NW' 'N' 'NE' 'E' 'SE' 'S' 'SW' 'W', or [x=,y=]
 ;;      Color   'red', 0xRRGGBB, 0xRRGGBBAA, or ['!'|'%', r=, g=, b=, a=]
 ;;
+;; The names of colors are 'black' 'white' 'gray' 'silver' 'red' 'green'
+;; 'blue' 'yellow' 'cyan' 'magenta' 'orange' 'purple' 'pink' 'brown' 'lime'
+;; 'teal' 'navy' 'maroon' 'olive', and 'transparent' (alpha 0).
+;;
+;; The values that the operations return are not symmetric with the ones they
+;; accept: an anchor is always a table [x=,y=] ('C' comes back as
+;; [x=0.5,y=0.5]), and a color is always [r=,g=,b=,a=] with integers from 0
+;; to 255 and no mode at index 0. Both are valid as arguments.
+;;
+;; Some fields have a second name: `fullscreen=` for `fs=` in `pico.open`,
+;; `pixmap=` for `pixels=` in `pico.layer.pixmap`, and `src=` and `rect=` for
+;; `sup=` and `crop=` in `pico.layer.screenshot`. The first name prevails if
+;; both are given.
+;;
+;; `pico.get.keyboard()` polls the modifiers only: its `key` is always the
+;; empty string (the key itself only comes in the events `:key.dn`/`:key.up`).
+;;
 ;; LAYERS, FONTS, AND SOUNDS are native values:
 ;;
 ;;      val l = pico.layer.empty [dim=['!',w=32,h=32]]
@@ -54,14 +71,41 @@
 ;; `pico.input.*`, and call `pico.close()` (or leave it to the end of the
 ;; program).
 ;;
+;; `pico.input.event` evaluates to the event (or nil on a timeout) and to the
+;; time passed in milliseconds, and accepts exactly these forms:
+;;
+;;      pico.input.event()              any event, no timeout
+;;      pico.input.event(ms)            any event, up to `ms`
+;;      pico.input.event(filter)        only the given event, no timeout
+;;      pico.input.event(filter, ms)    only the given event, up to `ms`
+;;
+;; `filter` is the name of an event ('quit', 'key.dn', ...) or nil for any
+;; event. `ms` is an integer (a number with no fractional part) from 0, or
+;; nil or -1 for no timeout. Anything else is an error: an argument of
+;; another type, a number where the filter goes if `ms` is also given, an
+;; unknown name, a timeout below -1, or a third argument.
+;;
 ;; REACTIVE PROGRAMS call `pico.open()` and await. When the main chunk awaits
 ;; (it does not terminate) and pico is open, the program runs inside the loop
-;; of pico (in expert mode, 30 fps by default, or as the program sets with
-;; `pico.set.expert(true,fps)`), which emits, once per frame and in this
-;; order:
+;; of pico, which runs in expert mode and leaves it on:
+;;
+;;  - If the expert mode is off when the loop starts, the loop turns it on at
+;;    30 fps.
+;;  - If the program has turned it on, the loop keeps its setting:
+;;    `pico.set.expert(true,fps)` runs at `fps`, and `pico.set.expert(true)`,
+;;    with no fps, makes each frame wait for an input event with no timeout:
+;;    with no events there are no frames, the time does not advance
+;;    (`await 1s` does not awake), and nothing is redrawn.
+;;
+;; A frame ends at its deadline or as soon as a real input event arrives, so
+;; that the fps is the minimum rate: each event has a frame (and a `:draw`) of
+;; its own.
+;;
+;; The loop emits, once per frame and in this order:
 ;;
 ;;      <number>                the time passed, in microseconds, so that
-;;                              `await 1s` and `loop dt on :clock` work
+;;                              `await 1s` and `loop dt on :clock` work;
+;;                              not emitted in a frame in which 0ms passed
 ;;      :quit []                the window was closed: the loop terminates
 ;;      :key.dn [key='A', ctrl=, shift=, alt=]
 ;;      :key.up [...]
@@ -72,19 +116,38 @@
 ;;      :draw                   to redraw the screen, between a clear and a
 ;;                              present
 ;;
-;; At most one input event is emitted per frame. The loop terminates with
-;; `:quit`, with the program, or with `pico.close()`.
+;; At most one real input event is emitted per frame (the others wait for the
+;; next frames). The scripted events of PICO_ATM_KEYS and PICO_ATM_MOUSE
+;; (below) are emitted in addition, after the real one and before `:draw`: all
+;; the entries of a frame, the keys first, each list in its order. The loop
+;; terminates with `:quit`, with the program, or with `pico.close()`.
 ;;
 ;; TESTS with no interaction:
 ;;
 ;;      PICO_ATM_FRAMES=n:ms        runs `n` frames, then emits `:quit`; if
 ;;                                  `ms` is not 0, each frame lasts exactly
 ;;                                  `ms` milliseconds and does not wait
+;;                                  (with `ms` 0, the frames are the real
+;;                                  ones: see `pico.set.expert(true)` above)
 ;;      PICO_ATM_KEYS=f:dn:A,...    presses (dn) or releases (up) keys at frames
+;;      PICO_ATM_MOUSE=f:dn:x:y,... presses (dn) or releases (up) the left
+;;                                  button, or only moves the mouse (mv), at
+;;                                  the pixel (x,y) of the window, at frames
 ;;      PICO_ATM_SHOT=f:x.png,...   saves the window at frames
 ;;
+;; An entry of PICO_ATM_MOUSE emits one `:mouse.button.dn`, `:mouse.button.up`,
+;; or `:mouse.motion`, as a real event: ['!', x=, y=, anchor=[x=0.5,y=0.5],
+;; left=, right=false, middle=false], in pixels of the window (a `dn` or `up`
+;; does not emit a motion before it). From then on, `pico.get.mouse` answers
+;; with the scripted position and left button, in any layer and mode, until a
+;; real mouse event arrives or the program calls `pico.set.mouse`. The real
+;; cursor does not move. An invalid entry is an error at its frame.
+;;
 ;; `pico.check(name)` and `pico.equal(a,b)` are the helpers of the visual
-;; tests (PICO_CHECK_INT, PICO_CHECK_ASR).
+;; tests (PICO_CHECK_INT, PICO_CHECK_ASR). `pico.check` uses the directories
+;; `c/tst/out` and `c/tst/asr` under PICO_ROOT, the absolute root of pico,
+;; which the script `pico-atmos` exports. If the variable is not set, they are
+;; `../c/tst/out` and `../c/tst/asr`, relative to the current directory.
 
 ```:prelude
 #include <math.h>
@@ -132,6 +195,11 @@ static struct {
     AVal    cur_box;
     AVal    world;
     AVal    window;
+    struct {                // mouse of PICO_ATM_MOUSE, in window pixels,
+        int on;             // which replaces the real one from an entry
+        int x, y;           // until a real mouse event or `pico.set.mouse`
+        int left;
+    } mouse;
 } PA;
 
 static const char* PA_FN = "pico";      // function being executed
@@ -660,6 +728,24 @@ static void pa_fill_mouse (AVal t, Pico_Mouse m) {
     pa_set(t, "middle", a_bool(m.middle));
 }
 
+// The state of the mouse, as `pico_get_mouse`, except that the mouse of
+// PICO_ATM_MOUSE replaces the real one while it is active.
+static Pico_Mouse pa_mouse (Pico_Layer* lay, Pico_Rel_Pos* pos) {
+    if (!PA.mouse.on) {
+        return pico_get_mouse(lay, pos);
+    }
+    Pico_Mouse m = {
+        .mode   = pos->mode,
+        .anchor = pos->anchor,
+        .left   = PA.mouse.left,
+    };
+    Pico_Rel_Pos phy = { '!', {PA.mouse.x, PA.mouse.y}, PICO_ANCHOR_NW };
+    pico_cv_pos(lay, pos, pico_layer_window(), &phy);
+    m.x = pos->x;
+    m.y = pos->y;
+    return m;
+}
+
 static const struct { const char* name; int id; } PA_EVENTS[] = {
     { "quit",            PICO_EVENT_QUIT            },
     { "window.resize",   PICO_EVENT_WINDOW_RESIZE   },
@@ -724,7 +810,7 @@ static int pa_enum (AVal v, const char* what, const char** names, int n, int* ou
 // OPEN / CLOSE
 ///////////////////////////////////////////////////////////////////////////////
 
-// pico.open([title=, fs=, show=])
+// pico.open([title=, fs=|fullscreen=, show=])
 static AStatus l_open (AFunc* self, int argc, AVal* argv) {
     PA_IN0("open")
     if (PA.open) {
@@ -750,6 +836,7 @@ static AStatus l_open (AFunc* self, int argc, AVal* argv) {
     }
     pico_open(&win);
     PA.open = 1;
+    PA.mouse.on = 0;
     PA.gen++;
     a_set(&PA.world,  pa_lay_new(pico_layer_world(),  PA_ROOT, NULL, NULL));
     a_set(&PA.window, pa_lay_new(pico_layer_window(), PA_ROOT, NULL, NULL));
@@ -1147,7 +1234,7 @@ static AStatus l_get_mouse (AFunc* self, int argc, AVal* argv) {
             && pa_anchor(a[1],&pos.anchor));
     }
     AVal t = a_tab();
-    pa_fill_mouse(t, pico_get_mouse(lay, &pos));
+    pa_fill_mouse(t, pa_mouse(lay, &pos));
     a_push(t);
     return A_OK;
 }
@@ -1370,6 +1457,7 @@ static AStatus l_set_mouse (AFunc* self, int argc, AVal* argv) {
     Pico_Rel_Pos pos;
     PA_TRY(pa_lay_opt(a[0],&lay,NULL) && pa_pos(a[1],&pos));
     pico_set_mouse(lay, pos);
+    PA.mouse.on = 0;
     return A_OK;
 }
 
@@ -1536,13 +1624,18 @@ static int pa_ctor (int argc, AVal* argv, PA_Ctor* c) {
     return !c->has_dst || pa_rect(dst, &c->dst);
 }
 
-// Applies the `target`, and pushes the box of the new layer.
-static AStatus pa_ctor_end (PA_Ctor* c, Pico_Layer* lay, int kind, PA_Lay* sup) {
+// Applies the `target` to a new layer.
+static void pa_ctor_dst (PA_Ctor* c, Pico_Layer* lay) {
     if (c->has_dst) {
         Pico_Layer* old = pico_set_layer(lay);
         pico_set_scene_dst(c->dst);
         pico_set_layer(old);
     }
+}
+
+// Applies the `target`, and pushes the box of the new layer.
+static AStatus pa_ctor_end (PA_Ctor* c, Pico_Layer* lay, int kind, PA_Lay* sup) {
+    pa_ctor_dst(c, lay);
     a_push(pa_lay_new(lay, kind, c->up, sup));
     return A_OK;
 }
@@ -1607,9 +1700,10 @@ static AStatus l_layer_image (AFunc* self, int argc, AVal* argv) {
     return pa_ctor_end(&c, pico_layer_image(c.xup,path), PA_IMAGE, NULL);
 }
 
-// pico.layer.images [up=, path=, sheet=]
+// pico.layer.images [up=, path=, sheet=, target=]
 //  - sheet=['#', w=cols, h=rows, n=count]: a vector, from left to right
 //  - sheet=['!', name=Rect, ...]: a table with the same names
+//  - target: the placement of each of the sub-layers, as in `pico.layer.sub`
 static AStatus l_layer_images (AFunc* self, int argc, AVal* argv) {
     PA_IN("layer.images")
     PA_Ctor c;
@@ -1672,6 +1766,7 @@ static AStatus l_layer_images (AFunc* self, int argc, AVal* argv) {
     PA_Lay* sup = a_nat_ptr(img);
     for (int i=0; i<n; i++) {
         Pico_Layer* lay = pico_layer_sub(c.xup, sup->lay, &crops[i]);
+        pa_ctor_dst(&c, lay);
         AVal sub = pa_lay_new(lay, PA_SUB, c.up, sup);
         a_setindex(ret, (names == NULL) ? a_int(i) : names[i], sub);
         a_dec(sub);
@@ -1683,7 +1778,7 @@ static AStatus l_layer_images (AFunc* self, int argc, AVal* argv) {
     return A_OK;
 }
 
-// pico.layer.pixmap [up=, pixels=, target=]
+// pico.layer.pixmap [up=, pixels=|pixmap=, target=]
 static AStatus l_layer_pixmap (AFunc* self, int argc, AVal* argv) {
     PA_IN("layer.pixmap")
     PA_Ctor c;
@@ -1700,7 +1795,7 @@ static AStatus l_layer_pixmap (AFunc* self, int argc, AVal* argv) {
     return pa_ctor_end(&c, lay, PA_PIXMAP, NULL);
 }
 
-// pico.layer.screenshot [up=, sup=, crop=, target=]
+// pico.layer.screenshot [up=, sup=|src=, crop=|rect=, target=]
 static AStatus l_layer_screenshot (AFunc* self, int argc, AVal* argv) {
     PA_IN("layer.screenshot")
     PA_Ctor c;
@@ -1859,24 +1954,50 @@ static AStatus l_input_delay (AFunc* self, int argc, AVal* argv) {
     return A_OK;
 }
 
-// pico.input.event([filter] [, ms]): the event (or nil), the time passed
+// pico.input.event(): the event (or nil), the time passed
+// pico.input.event(ms)
+// pico.input.event(filter [, ms])
+//  - filter: a string of PA_EVENTS, or nil for any event
+//  - ms: an integer >= 0, or nil (or -1) to wait with no timeout
+//  - at most 2 arguments
 static AStatus l_input_event (AFunc* self, int argc, AVal* argv) {
     PA_IN("input.event")
-    int ms = -1;
+    if (argc > 2) {
+        return a_error("%s : too many arguments (at most 2, got %d)",
+            PA_FN, argc);
+    }
+    AVal a0 = PA_ARG(0);
+    AVal a1 = PA_ARG(1);
+    AVal vms = a1;
+    int ims = 1;
     int64_t n;
-    if (argc>0 && a_toint(argv[argc-1],&n)) {
-        ms = (int) n;
+    if (a1.type==A_NIL && a0.type!=A_STR && a0.type!=A_NIL) {
+        // (ms)
+        vms = a0;
+        ims = 0;
+        if (!a_toint(a0, &n)) {
+            return pa_bad(0, "string or integer", a0);
+        }
+    } else if (a0.type!=A_STR && a0.type!=A_NIL) {
+        return pa_bad(0, "string", a0);
+    }
+    int ms = -1;
+    if (vms.type != A_NIL) {
+        PA_TRY(pa_int(vms, ims, &ms));
+        if (ms < -1) {
+            return a_error("%s : invalid timeout", PA_FN);
+        }
     }
     int id = PICO_EVENT_ANY;
-    if (PA_ARG(0).type == A_STR) {
+    if (a0.type == A_STR) {
         for (int i=0; i<PA_NEVENTS; i++) {
-            if (!strcmp(PA_EVENTS[i].name, A_STR_OF(argv[0])->s)) {
+            if (!strcmp(PA_EVENTS[i].name, A_STR_OF(a0)->s)) {
                 id = PA_EVENTS[i].id;
             }
         }
         if (id == PICO_EVENT_ANY) {
             return a_error("%s : invalid event \"%s\"",
-                PA_FN, A_STR_OF(argv[0])->s);
+                PA_FN, A_STR_OF(a0)->s);
         }
     }
     Pico_Event e;
@@ -2126,17 +2247,25 @@ static int pa_same (const char* path1, const char* path2) {
     return ok;
 }
 
-// pico.check(name): saves the window to `../c/tst/out/<name>.png`, and
-// compares it with `../c/tst/asr/<name>.png` if PICO_CHECK_ASR is set.
+// pico.check(name): saves the window to `<tst>/out/<name>.png`, and
+// compares it with `<tst>/asr/<name>.png` if PICO_CHECK_ASR is set.
+// `<tst>` is `<PICO_ROOT>/c/tst` (`pico-atmos` sets PICO_ROOT to the root
+// of the repository), or `../c/tst` if the variable is not set.
 static AStatus l_check (AFunc* self, int argc, AVal* argv) {
     PA_IN("check")
     const char* name;
     PA_TRY(pa_str(PA_ARG(0), 0, &name));
-    char out[512], asr[512];
-    snprintf(out, sizeof(out), "../c/tst/out/%s.png", name);
-    snprintf(asr, sizeof(asr), "../c/tst/asr/%s.png", name);
-    mkdir("../c/tst/out", 0777);
-    PA_TRY(pa_file("../c/tst/out"));
+    char tst[1024], dir[1100], out[2048], asr[2048];
+    if (pa_env("PICO_ROOT")) {
+        snprintf(tst, sizeof(tst), "%s/c/tst", getenv("PICO_ROOT"));
+    } else {
+        snprintf(tst, sizeof(tst), "../c/tst");
+    }
+    snprintf(dir, sizeof(dir), "%s/out", tst);
+    snprintf(out, sizeof(out), "%s/out/%s.png", tst, name);
+    snprintf(asr, sizeof(asr), "%s/asr/%s.png", tst, name);
+    mkdir(dir, 0777);
+    PA_TRY(pa_file(dir));
     pico_output_screenshot(pico_layer_window(), out, NULL);
     printf("Testing: %s\n", name);
     if (pa_env("PICO_CHECK_INT")) {
@@ -2145,7 +2274,7 @@ static AStatus l_check (AFunc* self, int argc, AVal* argv) {
         pico_input_event(NULL, PICO_EVENT_KEY_DN);
     }
     if (pa_env("PICO_CHECK_ASR") && !pa_same(out, asr)) {
-        snprintf(asr, sizeof(asr), "../c/tst/asr/%s-CI.png", name);
+        snprintf(asr, sizeof(asr), "%s/asr/%s-CI.png", tst, name);
         if (!pa_same(out, asr)) {
             return a_error("FAIL: %s", name);
         }
@@ -2170,6 +2299,37 @@ static AStatus pa_emit_tag (const char* tag, int tab) {
     return st;
 }
 
+// Test script: an entry `dn:x:y`, `up:x:y`, or `mv:x:y` of PICO_ATM_MOUSE.
+// The event has the mouse as a real event has it: in pixels of the window,
+// with the anchor 'C'.
+static AStatus pa_script_mouse (const char* arg) {
+    int x, y;
+    char k[3], end;
+    int id = PICO_EVENT_NONE;
+    if (sscanf(arg, "%2[a-z]:%d:%d%c", k, &x, &y, &end) == 3) {
+        id = !strcmp(k,"dn") ? PICO_EVENT_MOUSE_BUTTON_DN
+           : !strcmp(k,"up") ? PICO_EVENT_MOUSE_BUTTON_UP
+           : !strcmp(k,"mv") ? PICO_EVENT_MOUSE_MOTION
+           : PICO_EVENT_NONE;
+    }
+    if (id == PICO_EVENT_NONE) {
+        return a_error("PICO_ATM_MOUSE : invalid entry \"%s\"", arg);
+    }
+    PA.mouse.on = 1;
+    PA.mouse.x  = x;
+    PA.mouse.y  = y;
+    if (id != PICO_EVENT_MOUSE_MOTION) {
+        PA.mouse.left = (id == PICO_EVENT_MOUSE_BUTTON_DN);
+    }
+    Pico_Event e = { .type=id };
+    Pico_Rel_Pos pos = { .mode='!', .anchor=PICO_ANCHOR_C };
+    e.mouse = pa_mouse(pico_layer_window(), &pos);
+    AVal evt = pa_mk_event(&e);
+    AStatus st = atm_emit(evt);
+    a_dec(evt);
+    return st;
+}
+
 // Test script: the entries `frame:...` of a variable that are due.
 static AStatus pa_script (const char* var, int frame) {
     AStatus st = A_OK;
@@ -2180,6 +2340,10 @@ static AStatus pa_script (const char* var, int frame) {
         snprintf(item, sizeof(item), "%.*s", (int)n, s);
         s += n + (s[n] == ',');
         char* arg = strchr(item, ':');
+        if (!strcmp(var,"PICO_ATM_MOUSE") && arg!=NULL && atoi(item)==frame) {
+            st = pa_script_mouse(arg+1);
+            continue;
+        }
         if (arg==NULL || atoi(item)!=frame) {
             continue;
         }
@@ -2238,6 +2402,11 @@ static AStatus pa_loop (void) {
         // event
         if (st==A_OK && e.type!=PICO_EVENT_NONE) {
             AVal evt = pa_mk_event(&e);
+            if (e.type==PICO_EVENT_MOUSE_MOTION ||
+                e.type==PICO_EVENT_MOUSE_BUTTON_DN ||
+                e.type==PICO_EVENT_MOUSE_BUTTON_UP) {
+                PA.mouse.on = 0;    // the real mouse is back
+            }
             st = atm_emit(evt);
             a_dec(evt);
             if (e.type == PICO_EVENT_QUIT) {
@@ -2246,6 +2415,9 @@ static AStatus pa_loop (void) {
         }
         if (st == A_OK) {
             st = pa_script("PICO_ATM_KEYS", frame);
+        }
+        if (st == A_OK) {
+            st = pa_script("PICO_ATM_MOUSE", frame);
         }
 
         // screen
@@ -2298,6 +2470,7 @@ int main (int argc, char** argv) {
 
 val pico = [
     ;; pico.open([title=, fs=, show=]): opens pico and its window
+    ;; (`fs` may also be named `fullscreen`)
     open  = `:value a_func(l_open,  0)`,
     ;; pico.close(): closes pico, and invalidates all layers, fonts, sounds
     close = `:value a_func(l_close, 0)`,
@@ -2351,7 +2524,7 @@ val pico = [
         effect   = `:value a_func(l_get_effect,   0)`,  ;; () -> [alpha=, color=, flip=, grid=, rotate=]
         expert   = `:value a_func(l_get_expert,   0)`,  ;; () -> boolean, fps
         image    = `:value a_func(l_get_image,    0)`,  ;; ([dim|mode,] path) -> Dim
-        keyboard = `:value a_func(l_get_keyboard, 0)`,  ;; () -> [key=, ctrl=, shift=, alt=]
+        keyboard = `:value a_func(l_get_keyboard, 0)`,  ;; () -> [key='', ctrl=, shift=, alt=]
         layer    = `:value a_func(l_get_layer,    0)`,  ;; () -> layer
         mouse    = `:value a_func(l_get_mouse,    0)`,  ;; ([layer,] mode|pos) -> Mouse
         now      = `:value a_func(l_get_now,      0)`,  ;; () -> ms
@@ -2388,8 +2561,11 @@ val pico = [
         ;; a table with the sub-layers of a sprite sheet:
         ;;  - sheet=['#', w=cols, h=rows, n=count]: a vector, left to right
         ;;  - sheet=['!', name=Rect, ...]: a table with the same names
-        images     = `:value a_func(l_layer_images,     0)`,  ;; [up=, path=, sheet=]
+        ;;  - target: the placement of every sub-layer (all the same)
+        images     = `:value a_func(l_layer_images,     0)`,  ;; [up=, path=, sheet=, target=]
+        ;; `pixels` may also be named `pixmap`
         pixmap     = `:value a_func(l_layer_pixmap,     0)`,  ;; [up=, pixels=, target=]
+        ;; `sup` and `crop` may also be named `src` and `rect`
         screenshot = `:value a_func(l_layer_screenshot, 0)`,  ;; [up=, sup=, crop=, target=]
         sub        = `:value a_func(l_layer_sub,        0)`,  ;; [up=, sup=, crop=, target=]
         text       = `:value a_func(l_layer_text,       0)`,  ;; [up=, dim=, text=, target=]
@@ -2409,9 +2585,13 @@ val pico = [
 
     input = [
         delay = `:value a_func(l_input_delay, 0)`,  ;; (ms) -> ms passed
-        ;; filter: 'quit', 'key.dn', 'key.up', 'mouse.motion',
-        ;; 'mouse.button.dn', 'mouse.button.up', 'window.resize'
-        event = `:value a_func(l_input_event, 0)`,  ;; ([filter] [, ms]) -> event|nil, ms passed
+        ;; () | (ms) | (filter [, ms]) -> event|nil, ms passed
+        ;;  - filter: 'quit', 'key.dn', 'key.up', 'mouse.motion',
+        ;;    'mouse.button.dn', 'mouse.button.up', 'window.resize', or nil
+        ;;    for any event
+        ;;  - ms: an integer >= 0, or nil (or -1) for no timeout
+        ;;  - any other argument, or a third one, is an error
+        event = `:value a_func(l_input_event, 0)`,
         loop  = `:value a_func(l_input_loop,  0)`,  ;; (): until the window closes
     ],
 

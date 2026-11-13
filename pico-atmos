@@ -16,6 +16,8 @@ if [ $# -eq 0 ] || [ "$1" = --help ]; then
     echo ""
     echo "Environment:"
     echo "  ATMOS        The Atmos compiler (default: atmos in PATH)"
+    echo ""
+    echo "Exports PICO_ROOT, the absolute root of pico, to the program."
     exit 0
 fi
 
@@ -40,6 +42,9 @@ ATM=$(basename -- "$1")                 # d.atm
 shift
 
 make -C "$PICO/c" lib >/dev/null || exit 1
+
+# the root of the repository, for `pico.check` (c/tst/out, c/tst/asr)
+export PICO_ROOT="$PICO"
 
 export ATMOS_CFLAGS="${ATMOS_CFLAGS:--O1} -I$PICO/c/src"
 export ATMOS_LDFLAGS="-L$PICO/c/src -lpico-sdl \

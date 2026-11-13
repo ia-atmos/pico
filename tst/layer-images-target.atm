@@ -1,0 +1,120 @@
+include "../pico.atm"
+
+;; `target=` in `pico.layer.images`: the placement of every sub-layer, as in
+;; `pico.layer.image` and `pico.layer.sub`.
+
+pico.open [ title="Images Target" ]
+
+val OUT = "../c/tst/out/"
+
+func bytes (path) {
+    val f = io.open(path, "rb")
+    val s = io.read(f, :all)
+    io.close(f)
+    s
+}
+
+;; the window with `f` drawn on a clear world, as a string of bytes
+func shot (name, f) {
+    pico.output.clear()
+    f()
+    bytes(pico.output.screenshot(pico.layer.window(), OUT ++ "layer-images-target-" ++ name ++ ".png"))
+}
+
+;; the target of a layer
+func target (l) {
+    val old = pico.set.layer(l)
+    val t = pico.get.scene().target
+    pico.set.layer(old)
+    t
+}
+
+func same (t, mode, x, y, w, h) {
+    (t@0 == mode) && pico.equal(t.x,x) && pico.equal(t.y,y)
+        && pico.equal(t.w,w) && pico.equal(t.h,h)
+        && pico.equal(t.anchor.x,0) && pico.equal(t.anchor.y,0)
+}
+
+val R = ['%', x=0.25, y=0.5, w=0.25, h=0.25, anchor='NW']
+
+print("grid: every sub-layer has the target")
+val grid = pico.layer.images [
+    path="../c/res/open.png", sheet=['#', w=2, h=2], target=R,
+]
+assert(#grid == 4)
+loop i in 4 {
+    assert(same(target(grid@i), '%', 0.25, 0.5, 0.25, 0.25), "grid target")
+}
+
+print("explicit: every sub-layer has the target")
+val expl = pico.layer.images [
+    path="../c/res/open.png",
+    sheet=['!', a=['%', x=0, y=0, w=0.5, h=0.5, anchor='NW'],
+                b=['%', x=0.5, y=0.5, w=0.5, h=0.5, anchor='NW']],
+    target=R,
+]
+assert(same(target(expl.a), '%', 0.25, 0.5, 0.25, 0.25), "expl.a target")
+assert(same(target(expl.b), '%', 0.25, 0.5, 0.25, 0.25), "expl.b target")
+
+print("no target: the default, as in pico.layer.sub")
+val plain = pico.layer.images [ path="../c/res/open.png", sheet=['#', w=2, h=2] ]
+val sub = pico.layer.sub [
+    sup  = pico.layer.image [ path="../c/res/open.png" ],
+    crop = ['%', x=0, y=0, w=0.5, h=0.5, anchor='NW'],
+]
+do {
+    val t1 = target(plain@0)
+    val t2 = target(sub)
+    assert(!same(t1, '%', 0.25, 0.5, 0.25, 0.25), "plain target")
+    assert((t1@0 == t2@0) && pico.equal(t1.x,t2.x) && pico.equal(t1.y,t2.y)
+        && pico.equal(t1.w,t2.w) && pico.equal(t1.h,t2.h), "plain vs sub")
+}
+
+print("draw with no rect uses the target")
+do {
+    val a = shot("01", \{ pico.output.draw.layer(grid@3) })
+    val b = shot("02", \{ pico.output.draw.layer(plain@3, R) })
+    val c = shot("03", \{ pico.output.draw.layer(plain@3) })
+    assert(a == b, "target vs rect")
+    assert(a != c, "target vs default")
+}
+
+print("attached: the same as pico.layer.sub with the target")
+do {
+    val world = pico.layer.world()
+    var a
+    var b
+    do {
+        val xs = pico.layer.images [
+            up=world, path="../c/res/open.png", sheet=['#', w=2, h=2, n=1], target=R,
+        ]
+        set a = shot("04", \{})
+    }
+    do {
+        val img = pico.layer.image [ path="../c/res/open.png" ]
+        val x = pico.layer.sub [
+            up=world, sup=img, target=R,
+            crop=['!', x=0, y=0, w=pico.get.image("../c/res/open.png").w/2,
+                  h=pico.get.image("../c/res/open.png").h/2, anchor='NW'],
+        ]
+        set b = shot("05", \{})
+    }
+    val c = shot("06", \{})
+    assert(a == b, "images vs sub")
+    assert(a != c, "attached vs nothing")
+}
+
+print("invalid target")
+do {
+    val ok, err = catch true {
+        pico.layer.images [
+            path="../c/res/open.png", sheet=['#', w=2, h=2], target=10,
+        ]
+    }
+    assert(!ok)
+    assert(string.find(err, "expected rect table"), err)
+    print("error", err)
+}
+
+print("ok")
+pico.close()
