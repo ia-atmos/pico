@@ -1,0 +1,99 @@
+include "../pico.atm"
+
+val VIDEO = "../c/res/video.y4m"
+
+pico.open()
+pico.set.window [ title="Video" ]
+pico.set.effect [ color=['!', r=0x00, g=0x00, b=0x00] ]
+
+;; pico.get.video: check Y4M header parsing
+do {
+    print("get.video: dimensions and fps")
+    val info = pico.get.video(VIDEO)
+    assert(info.dim.w == 10)
+    assert(info.dim.h == 10)
+    assert(info.fps == 10)
+    assert(info.frame == 0)
+    assert(info.done == false)
+}
+
+;; pico.layer.video: create layer
+print("layer.video: create")
+val vid = pico.layer.video [ path=VIDEO ]
+val full = ['%', x=0.5, y=0.5, w=1, h=1, anchor='C']
+
+;; pico.set.video: first frame (0)
+do {
+    print("set.video: frame 0 (top-left)")
+    pico.set.layer(vid)
+    val ok = pico.set.video(vid, 0)
+    assert(ok == true)
+    pico.set.layer(pico.layer.world())
+    pico.output.clear()
+    pico.output.draw.layer(vid, full)
+    pico.check("video-01")
+}
+
+;; pico.set.video: middle frame (25)
+do {
+    print("set.video: frame 25 (bottom-middle)")
+    val ok = pico.set.video(vid, 25)
+    assert(ok == true)
+    pico.output.clear()
+    pico.output.draw.layer(vid, full)
+    pico.check("video-02")
+}
+
+;; pico.set.video: last frame (49)
+do {
+    print("set.video: frame 49 (top-right)")
+    val ok = pico.set.video(vid, 49)
+    assert(ok == true)
+    pico.output.clear()
+    pico.output.draw.layer(vid, full)
+    pico.check("video-03")
+}
+
+;; pico.set.video: backward seek
+do {
+    print("set.video: backward seek to frame 10")
+    val ok = pico.set.video(vid, 10)
+    assert(ok == true)
+    pico.output.clear()
+    pico.output.draw.layer(vid, full)
+    pico.check("video-04")
+}
+
+;; pico.set.video: past EOF
+do {
+    print("set.video: past EOF returns false")
+    val ok = pico.set.video(vid, 100)
+    assert(ok == false)
+}
+
+;; pico.get.video: check state after sync
+do {
+    print("get.video: state after sync")
+    val info = pico.get.video(vid)
+    assert(info.done == true)
+    assert(info.dim.w==10 && info.dim.h==10)
+}
+
+;; pico.output.draw.video: all-in-one
+do {
+    print("draw.video: first call")
+    pico.output.clear()
+    val ok = pico.output.draw.video(VIDEO, full)
+    assert(ok == true)
+    pico.check("video-05")
+}
+
+;; errors
+do {
+    val ok, err = catch true { pico.set.video(pico.layer.world(), 0) }
+    assert(!ok)
+    print(err)
+}
+
+pico.layer.free(vid)
+pico.close()

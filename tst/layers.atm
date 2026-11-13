@@ -1,0 +1,129 @@
+include "../pico.atm"
+
+pico.open()
+
+;; get.layer is the world initially
+print("get.layer returns world initially")
+var layer = pico.get.layer()
+assert(layer == pico.layer.world())
+
+;; set.layer(world) is idempotent
+print("set.layer(world) keeps world layer")
+pico.set.layer(pico.layer.world())
+set layer = pico.get.layer()
+assert(layer == pico.layer.world())
+
+;; create bg layer (32x32)
+print("create and switch to layer")
+val background = pico.layer.empty [ dim=['!', w=32, h=32] ]
+assert(pico.set.layer(background) == pico.layer.world())
+set layer = pico.get.layer()
+assert(layer == background)
+
+;; create ui layer (48x48)
+print("switch to another layer")
+val ui = pico.layer.empty [ dim=['!', w=48, h=48] ]
+assert(pico.set.layer(ui) == background)
+set layer = pico.get.layer()
+assert(layer == ui)
+
+;; draw on bg layer (red background)
+print("draw on layer (no auto-present)")
+pico.set.layer(background)
+pico.set.effect [ color=['!', r=0x80, g=0x00, b=0x00] ]
+pico.output.clear()
+pico.output.draw.rect(['%', x=0.5, y=0.5, w=0.5, h=0.5, anchor='C'])
+pico.set.layer(pico.layer.world())
+pico.output.clear()
+pico.output.draw.layer(background, ['%', x=0.5, y=0.5, w=1, h=1, anchor='C'])
+pico.check("layers-01")
+
+;; draw on ui layer (blue background)
+print("draw on ui layer")
+pico.set.layer(ui)
+pico.set.effect [ color=['!', r=0x00, g=0x00, b=0x80] ]
+pico.output.clear()
+pico.set.pencil [ color='green' ]
+pico.output.draw.rect(['%', x=0.5, y=0.5, w=0.5, h=0.5, anchor='C'])
+pico.set.layer(pico.layer.world())
+pico.output.clear()
+pico.output.draw.layer(ui, ['%', x=0.5, y=0.5, w=1, h=1, anchor='C'])
+pico.check("layers-02")
+
+;; switch back to world
+print("switch back to world")
+pico.set.layer(pico.layer.world())
+set layer = pico.get.layer()
+assert(layer == pico.layer.world())
+
+;; composite layers onto world
+print("draw layers onto world")
+pico.set.effect [ color='black' ]
+pico.output.clear()
+pico.output.draw.layer(background, ['%', x=1.0/3, y=1.0/3, h=1.0/3, anchor='C'])
+pico.output.draw.layer(ui, ['%', x=2.0/3, y=2.0/3, w=1.0/3, anchor='C'])
+pico.check("layers-03")
+
+;; present works on world
+print("present works on world")
+pico.output.present()
+
+;; layer.empty (content preserved)
+print("layer.empty")
+val reuse = pico.layer.empty [ dim=['!', w=32, h=32] ]
+pico.set.layer(reuse)
+pico.set.effect [ color=['!', r=0x00, g=0x80, b=0x00] ]
+pico.output.clear()
+pico.set.pencil [ color=['!', r=0xFF, g=0xFF, b=0x00] ]
+pico.output.draw.rect(['%', x=0.5, y=0.5, w=0.5, h=0.5, anchor='C'])
+pico.set.layer(pico.layer.world())
+pico.set.effect [ color='black' ]
+pico.output.clear()
+pico.output.draw.layer(reuse, ['%', x=0.5, y=0.5, w=1, h=1, anchor='C'])
+pico.check("layers-04")
+
+;; layer.pixmap
+print("layer.pixmap")
+val mybuf = pico.layer.pixmap [ pixels=[
+    [ ['!',r=255,g=0,b=0], ['!',r=0,g=255,b=0]   ],
+    [ ['!',r=0,g=0,b=255], ['!',r=255,g=255,b=0] ],
+] ]
+pico.output.clear()
+pico.output.draw.layer(mybuf, ['%', x=0.5, y=0.5, w=0.5, h=0.5, anchor='C'])
+pico.check("layers-05")
+
+;; target as dim: sets both the dim and the scene.target
+print("layer.empty: target as dim")
+do {
+    ;; world is 100x100; '%' w=0.5,h=0.5 -> 50x50 layer
+    val r = ['%', x=0.25, y=0.75, w=0.5, h=0.5, anchor='C']
+    val l = pico.layer.empty [ up=pico.layer.world(), clear=true, target=r ]
+    pico.set.layer(l)
+    val s = pico.get.scene()
+    assert(s.dim.w==50 && s.dim.h==50)
+    assert(s.target@0 == '%')
+    assert(s.target.x==0.25 && s.target.y==0.75)
+    assert(s.target.w==0.5  && s.target.h==0.5)
+    pico.set.layer(pico.layer.world())
+}
+
+;; target on other constructors
+print("layer.pixmap: target sets scene.target")
+do {
+    val r = ['%', x=0.5, y=0.5, w=0.25, h=0.25, anchor='C']
+    val px = [ [ ['!',r=0xFF,g=0,b=0], ['!',r=0,g=0xFF,b=0]    ],
+               [ ['!',r=0,g=0,b=0xFF], ['!',r=0xFF,g=0xFF,b=0] ] ]
+    val l = pico.layer.pixmap [ up=pico.layer.world(), pixels=px, target=r ]
+    pico.set.layer(l)
+    val s = pico.get.scene()
+    assert(s.target@0 == '%')
+    assert(s.target.x==0.5  && s.target.y==0.5)
+    assert(s.target.w==0.25 && s.target.h==0.25)
+    pico.set.layer(pico.layer.world())
+}
+
+pico.layer.free(mybuf)
+pico.layer.free(reuse)
+pico.layer.free(ui)
+pico.layer.free(background)
+pico.close()

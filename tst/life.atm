@@ -1,0 +1,257 @@
+include "../pico.atm"
+
+;; Lifetime of layers, fonts, and sounds.
+
+val OUT = "../c/tst/out/"
+
+func bytes (path) {
+    val f = io.open(path, "rb")
+    assert(f, "cannot open " ++ path)
+    val c = io.read(f, :all)
+    io.close(f)
+    c
+}
+
+;; the window, as it is presented, as a string of bytes
+func shot (name) {
+    pico.output.present()
+    bytes(pico.output.screenshot(pico.layer.window(), OUT ++ "life-" ++ name ++ ".png"))
+}
+
+;; the call must fail with a message that contains `msg`
+func fails (msg, f) {
+    val ok, err = catch true { f() }
+    assert(!ok, "expected error : " ++ msg)
+    assert(string.find(err, msg), "unexpected error : " ++ err)
+    print("error", err)
+}
+
+;; the world redrawn from nothing but its children
+func redraw (name) {
+    pico.output.clear()
+    shot(name)
+}
+
+func fill (l, clr) {
+    val old = pico.set.layer(l)
+    pico.set.effect [ color=clr ]
+    pico.output.clear()
+    pico.set.layer(old)
+}
+
+val RED  = ['!', x=0, y=0, w=10, h=10, anchor='NW']
+val HALF = ['%', x=0.5, y=0.5, w=0.5, h=0.5]
+
+;; errors before pico.open
+fails("pico is not open", \{ pico.output.clear() })
+fails("pico is not open", \{ pico.layer.world() })
+fails("pico is not open", \{ pico.close() })
+
+pico.open()
+var world = pico.layer.world()
+fails("pico is already open", \{ pico.open() })
+pico.output.clear()
+val empty = shot("empty")
+
+print("1. parent dropped before its child")
+do {
+    var parent = pico.layer.empty [ up=world, dim=['!',w=20,h=20], target=HALF ]
+    val child  = pico.layer.empty [ up=parent, dim=['!',w=4,h=4], target=HALF ]
+    fill(parent, 'blue')
+    fill(child, 'red')
+    val both = redraw("1-both")
+    assert(both != empty)
+    fails("children", \{ pico.layer.free(parent) })
+    set parent = nil                ;; still alive: the child depends on it
+    assert(redraw("1-drop") == both)
+    fill(child, 'red')              ;; the child is still usable
+    assert(redraw("1-fill") == both)
+}                                   ;; the child goes, then the parent
+assert(redraw("1-none") == empty)
+
+print("2. parent pinned in a block that ends before its child")
+do {
+    var child
+    var both
+    do {
+        pin parent = pico.layer.empty [ up=world, dim=['!',w=20,h=20], target=HALF ]
+        ;; a table that holds a pinned value must be pinned itself
+        pin args = [ up=parent, dim=['!',w=4,h=4], target=HALF ]
+        set child = pico.layer.empty(args)
+        fill(parent, 'blue')
+        fill(child, 'red')
+        set both = redraw("2-both")
+        assert(both != empty)
+    }                               ;; the parent is postponed
+    assert(redraw("2-drop") == both)
+    set child = nil
+    assert(redraw("2-none") == empty)
+}
+
+print("3. current layer dropped")
+do {
+    do {
+        val l = pico.layer.empty [ dim=['!',w=8,h=8] ]
+        pico.set.layer(l)
+        fails("current layer", \{ pico.layer.free(l) })
+        fails("onto itself", \{ pico.output.draw.layer(l) })
+    }                               ;; still alive: it is the current layer
+    val cur = pico.get.layer()
+    assert(cur != nil && cur != world)
+    pico.output.clear()
+    pico.output.draw.rect(RED)
+    assert(pico.get.scene().dim.w == 8)
+    val old = pico.set.layer(world)
+    assert(old == cur)
+    pico.layer.free(old)
+    fails("invalid layer", \{ pico.set.layer(old) })
+    fails("invalid layer", \{ pico.layer.free(cur) })
+    assert(pico.get.layer() == world)
+}
+
+print("4. current layer pinned in a block that ends")
+do {
+    do {
+        pin l = pico.layer.empty [ dim=['!',w=8,h=8] ]
+        pico.set.layer(l)
+    }                               ;; postponed: it is the current layer
+    assert(pico.get.layer() == nil) ;; but its value is gone
+    pico.output.clear()
+    pico.output.draw.rect(RED)
+    assert(pico.get.scene().dim.w == 8)
+    assert(pico.set.layer(world) == nil)
+    assert(pico.get.scene().dim.w == 100)
+}
+
+print("5. source of a sub-layer dropped")
+do {
+    var src = pico.layer.empty [ dim=['!',w=8,h=8] ]
+    fill(src, 'green')
+    val sub = pico.layer.sub [ sup=src, crop=['!',x=0,y=0,w=4,h=4,anchor='NW'] ]
+    fails("sub-layers", \{ pico.layer.free(src) })
+    fails("sub-layer of a sub-layer", \{
+        pico.layer.sub [ sup=sub, crop=['!',x=0,y=0,w=2,h=2,anchor='NW'] ]
+    })
+    pico.output.clear()
+    pico.output.draw.layer(sub, HALF)
+    val drawn = shot("5-with")
+    assert(drawn != empty)
+    set src = nil                   ;; still alive: the sub-layer depends on it
+    pico.output.clear()
+    pico.output.draw.layer(sub, HALF)
+    assert(shot("5-drop") == drawn)
+    pico.output.clear()
+}
+
+print("6. sprite sheet: the image lives while a sub-layer does")
+do {
+    var imgs = pico.layer.images [ path="../c/res/open.png", sheet=['#', w=2, h=2] ]
+    assert(#imgs == 4)
+    var one = imgs@3
+    set imgs = nil
+    pico.output.clear()
+    pico.output.draw.layer(one, HALF)
+    assert(shot("6-one") != empty)
+    set one = nil
+    pico.output.clear()
+
+    val named = pico.layer.images [ path="../c/res/open.png",
+        sheet=['!', a=['!',x=0,y=0,w=10,h=10,anchor='NW'],
+                    b=['!',x=10,y=10,w=20,h=20,anchor='NW']] ]
+    assert(type(named.a)=='native' && type(named.b)=='native' && #named==0)
+    val old = pico.set.layer(named.b)
+    assert(pico.get.scene().dim.w == 20)
+    pico.set.layer(old)
+}
+
+print("7. fonts and sounds")
+do {
+    do {
+        pin f = pico.font.load("../c/res/DejaVuSans.ttf")
+        pin args = [ font=f ]
+        pico.set.pencil(args)
+    }                               ;; postponed: the pencil uses it
+    assert(pico.get.pencil().font == nil)   ;; but its value is gone
+    pico.output.draw.text("abc", ['!', x=10, y=10, h=10, anchor='NW'])
+    assert(shot("7-text") != empty)
+    pico.set.pencil [ font=false ]
+    pico.output.clear()
+
+    ;; the font of a layer that is dropped goes with it
+    do {
+        val l = pico.layer.empty [ dim=['!',w=40,h=20] ]
+        val old = pico.set.layer(l)
+        pico.set.pencil [ font=pico.font.load("../c/res/DejaVuSans.ttf") ]
+        pico.output.draw.text("abc", ['!', x=0, y=0, h=10, anchor='NW'])
+        pico.set.layer(old)
+    }
+
+    val s = pico.sound.load("../c/res/start.wav")
+    pico.output.sound(s)
+    pico.output.sound("../c/res/start.wav")
+    pico.sound.free(s)
+    fails("invalid sound", \{ pico.output.sound(s) })
+    fails("expected sound", \{ pico.output.sound(world) })
+    fails("expected layer", \{ pico.set.layer(pico.font.load("../c/res/tiny.ttf")) })
+}
+
+print("8. wrong arguments")
+fails("cannot free the world", \{ pico.layer.free(world) })
+fails("expected layer",        \{ pico.set.layer(nil) })
+fails("expected layer",        \{ pico.set.layer("world") })
+fails("expected rect table",   \{ pico.output.draw.rect(10) })
+fails("invalid mode at index 0", \{ pico.output.draw.rect([x=1, y=1]) })
+fails("invalid mode '?'",      \{ pico.output.draw.rect(['?', x=1, y=1]) })
+fails("expected numeric field 'x'", \{ pico.output.draw.rect(['!', y=1]) })
+fails("invalid anchor \"X\"",  \{ pico.output.draw.rect(['!', x=1, y=1, anchor='X']) })
+fails("invalid color \"xxx\"", \{ pico.set.pencil [ color='xxx' ] })
+fails("invalid style",         \{ pico.set.pencil [ style='xxx' ] })
+fails("invalid flip",          \{ pico.set.effect [ flip='xxx' ] })
+fails("invalid event",         \{ pico.input.event('xxx') })
+fails("'dim' required",        \{ pico.layer.empty [] })
+fails("unexpected 'clear'",    \{ pico.layer.empty [ clear=true, dim=['!',w=1,h=1] ] })
+fails("required 'path'",       \{ pico.layer.image [] })
+fails("cannot open file",      \{ pico.layer.image [ path="no-such.png" ] })
+fails("required 'text'",       \{ pico.layer.text [ dim=['!',h=10] ] })
+fails("expected row tables",   \{ pico.layer.pixmap [ pixels=[1,2] ] })
+fails("cannot host children",  \{
+    val img = pico.layer.image [ path="../c/res/open.png" ]
+    pico.layer.empty [ up=img, dim=['!',w=1,h=1] ]
+})
+assert(redraw("8-none") == empty)
+
+print("9. use after pico.close")
+val kept  = pico.layer.empty [ up=world, dim=['!',w=8,h=8] ]
+val kfont = pico.font.load("../c/res/DejaVuSans.ttf")
+val ksnd  = pico.sound.load("../c/res/start.wav")
+val ksub  = pico.layer.sub [ sup=kept, crop=['!',x=0,y=0,w=4,h=4,anchor='NW'] ]
+pico.set.layer(kept)
+pico.close()
+fails("pico is not open", \{ pico.set.layer(kept) })
+fails("pico is not open", \{ pico.layer.free(kept) })
+fails("pico is not open", \{ pico.get.layer() })
+
+print("10. open again: the values from before are invalid")
+pico.open [ title="Life", show=true ]
+assert(pico.get.window().title == "Life")
+fails("invalid layer", \{ pico.set.layer(kept) })
+fails("invalid layer", \{ pico.set.layer(world) })
+fails("invalid layer", \{ pico.output.draw.layer(ksub) })
+fails("invalid layer", \{ pico.layer.free(kept) })
+fails("invalid layer", \{ pico.layer.empty [ up=kept, dim=['!',w=1,h=1] ] })
+fails("invalid font",  \{ pico.set.pencil [ font=kfont ] })
+fails("invalid font",  \{ pico.font.free(kfont) })
+fails("invalid sound", \{ pico.output.sound(ksnd) })
+set world = pico.layer.world()
+assert(pico.get.layer() == world)
+pico.output.clear()
+assert(shot("10-empty") == empty)
+
+print("11. termination with values alive and pico open")
+val last1 = pico.layer.empty [ up=world, dim=['!',w=8,h=8] ]
+val last2 = pico.layer.empty [ up=last1, dim=['!',w=2,h=2] ]
+val last3 = pico.layer.sub [ sup=last1, crop=['!',x=0,y=0,w=4,h=4,anchor='NW'] ]
+val last4 = pico.font.load("../c/res/DejaVuSans.ttf")
+pico.set.layer(last2)
+pico.set.pencil [ font=last4 ]
+print("ok")

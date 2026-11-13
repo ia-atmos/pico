@@ -4,7 +4,11 @@
 
 A 2D graphics library for [Atmos][atmos], built on [pico-sdl](c/).
 
-- `pico.atm` (to be written): the Atmos binding, at the repository root.
+- [`pico.atm`](pico.atm): the Atmos binding and environment (its header
+  documents the API).
+- [`pico-atmos`](pico-atmos): builds and runs an Atmos program with the
+  binding.
+- [`tst/`](tst/): tests of the binding.
 - [`c/`](c/): the C library (`pico-sdl`), with its tests and documentation.
 - Games, still in the previous Atmos dialect and not yet ported to the
   binding:
@@ -12,7 +16,25 @@ A 2D graphics library for [Atmos][atmos], built on [pico-sdl](c/).
     - [`exs/rocks/`](exs/rocks/): a spaceship shooter for 2 players
     - [`exs/storm/`](exs/storm/): a port of `ceu-sdl-storm`
 
-[atmos]: https://github.com/fsantanna/ceu-atmos
+[atmos]: https://github.com/ia-atmos/lang
+
+# Run
+
+```
+sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev
+ATMOS=/path/to/atmos ./pico-atmos tst/env.atm
+```
+
+```
+include "pico.atm"      ;; path relative to the program
+pico.open()
+spawn {
+    loop on :draw {
+        pico.output.draw.rect ['%', x=0.5, y=0.5, w=0.5, h=0.5]
+    }
+}
+await(:key.dn)
+```
 
 # C library
 

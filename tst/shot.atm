@@ -1,0 +1,227 @@
+include "../pico.atm"
+
+val OUT = "../c/tst/out/"
+val ASR = "../c/tst/asr/"
+
+func check (out, asr) {
+    print("Testing: " ++ asr)
+    val f1 = io.open(out, "rb")
+    val f2 = io.open(asr, "rb")
+    assert(f1, "cannot open " ++ out)
+    assert(f2, "cannot open " ++ asr)
+    val c1 = io.read(f1, :all)
+    val c2 = io.read(f2, :all)
+    io.close(f1)
+    io.close(f2)
+    assert(c1 == c2, "files differ: " ++ out ++ " vs " ++ asr)
+}
+
+pico.open()
+pico.output.clear()
+
+val world  = pico.layer.world()
+val window = pico.layer.window()
+
+do {
+    print("entire screen - 01")
+    pico.output.draw.rect(['!', x=10, y=10, w=20, h=20, anchor='NW'])
+    pico.set.layer(window)
+    val f = pico.output.screenshot(nil)
+    pico.set.layer(world)
+    assert(f != nil)
+    check(f, ASR ++ "shot-01.png")
+    assert(os.remove(f))
+}
+
+do {
+    print("entire screen - 02")
+    pico.set.pencil [ color=['!', r=200, g=0, b=0] ]
+    pico.output.draw.rect(['!', x=30, y=30, w=10, h=10, anchor='NW'])
+    pico.set.layer(window)
+    val f = pico.output.screenshot(nil, OUT ++ "shot-02.png")
+    pico.set.layer(world)
+    assert(f == OUT ++ "shot-02.png")
+    check(f, ASR ++ "shot-02.png")
+}
+
+do {
+    print("part of screen (raw)")
+    pico.set.pencil [ color=['!', r=0, g=200, b=0] ]
+    pico.output.draw.rect(['!', x=40, y=5, w=10, h=10, anchor='NW'])
+    pico.set.layer(window)
+    val f = pico.output.screenshot(nil, ['!', x=0, y=0, w=250, h=150, anchor='NW'])
+    pico.set.layer(world)
+    assert(f != nil)
+    check(f, ASR ++ "shot-03.png")
+    assert(os.remove(f))
+}
+
+do {
+    print("part of screen (pct)")
+    pico.set.pencil [ color=['!', r=0, g=0, b=200] ]
+    pico.output.draw.rect(['!', x=50, y=50, w=10, h=10, anchor='NW'])
+    ;; the window as an explicit layer, with no switch
+    val f = pico.output.screenshot(window, ['%', x=0, y=0, w=0.5, h=0.3, anchor='NW'])
+    assert(pico.get.layer() == world)
+    assert(f != nil)
+    check(f, ASR ++ "shot-04.png")
+    assert(os.remove(f))
+}
+
+do {
+    print("world layer")
+    pico.set.effect [ color=['!', r=0x10, g=0x10, b=0x10] ]
+    pico.output.clear()
+    pico.set.pencil [ color=['!', r=0xFF, g=0x00, b=0x00] ]
+    pico.output.draw.rect(['!', x=10, y=10, w=30, h=30, anchor='NW'])
+    val f = pico.output.screenshot(nil, OUT ++ "shot-world.png")
+    assert(f == OUT ++ "shot-world.png")
+    check(f, ASR ++ "shot-world.png")
+}
+
+print("empty layer")
+val empty1 = pico.layer.empty [ clear=false, dim=['!', w=64, h=32] ]
+do {
+    pico.set.layer(empty1)
+    pico.set.effect [ color=['!', r=0x00, g=0x80, b=0x00] ]
+    pico.output.clear()
+    pico.set.pencil [ color=['!', r=0xFF, g=0xFF, b=0x00] ]
+    pico.output.draw.rect(['!', x=5, y=5, w=10, h=10, anchor='NW'])
+    val f = pico.output.screenshot(nil, OUT ++ "shot-empty.png")
+    pico.set.layer(world)
+    assert(f == OUT ++ "shot-empty.png")
+    check(f, ASR ++ "shot-empty.png")
+}
+
+do {
+    print("pixmap layer")
+    val pmap1 = pico.layer.pixmap [ pixels=[
+        [[r=255, g=  0, b=  0, a=255], [r=  0, g=255, b=  0, a=255]],
+        [[r=  0, g=  0, b=255, a=255], [r=255, g=255, b=  0, a=255]],
+    ] ]
+    val f = pico.output.screenshot(pmap1, OUT ++ "shot-pixmap.png")
+    assert(f == OUT ++ "shot-pixmap.png")
+    check(f, ASR ++ "shot-pixmap.png")
+}
+
+do {
+    print("sub layer")
+    val sub1 = pico.layer.sub [ sup=empty1,
+        crop=['!', x=0, y=0, w=32, h=16, anchor='NW'] ]
+    pico.set.layer(sub1)
+    val f = pico.output.screenshot(nil, OUT ++ "shot-sub.png")
+    pico.set.layer(world)
+    assert(f == OUT ++ "shot-sub.png")
+    check(f, ASR ++ "shot-sub.png")
+}
+
+do {
+    print("image layer")
+    val img1 = pico.layer.image [ path="../c/res/open.png" ]
+    pico.set.layer(img1)
+    val f = pico.output.screenshot(nil, OUT ++ "shot-image.png")
+    pico.set.layer(world)
+    assert(f == OUT ++ "shot-image.png")
+    check(f, ASR ++ "shot-image.png")
+}
+
+do {
+    print("text layer")
+    pico.set.pencil [ color=['!', r=0xFF, g=0xFF, b=0xFF] ]
+    val txt1 = pico.layer.text [ dim=['!', h=16], text="hello" ]
+    pico.set.layer(txt1)
+    val f = pico.output.screenshot(nil, OUT ++ "shot-text.png")
+    pico.set.layer(world)
+    assert(f == OUT ++ "shot-text.png")
+    check(f, ASR ++ "shot-text.png")
+}
+
+do {
+    print("video layer")
+    val vid1 = pico.layer.video [ path="../c/res/video.y4m" ]
+    pico.set.layer(vid1)
+    assert(pico.set.video(vid1, 0) == true)
+    val f = pico.output.screenshot(nil, OUT ++ "shot-video.png")
+    pico.set.layer(world)
+    assert(f == OUT ++ "shot-video.png")
+    check(f, ASR ++ "shot-video.png")
+}
+
+;; PICO.LAYER.SCREENSHOT
+
+;; 1. capture an existing layer into a new layer; reuses empty1's reference
+do {
+    print("screenshot layer - reuse empty1")
+    val snap = pico.layer.screenshot [ sup=empty1 ]
+    pico.set.layer(snap)
+    val f = pico.output.screenshot(nil, OUT ++ "shot-snap-empty.png")
+    pico.set.layer(world)
+    assert(f == OUT ++ "shot-snap-empty.png")
+    check(f, ASR ++ "shot-empty.png")
+}
+
+;; 2. compose a multi-layer scene, capture it, clear, redraw, compare
+do {
+    print("screenshot layer - scene round-trip")
+
+    val red = pico.layer.empty [ dim=['!', w=20, h=20] ]
+    pico.set.layer(red)
+    pico.set.effect [ color=['!', r=0xFF, g=0, b=0] ]
+    pico.output.clear()
+
+    val blue = pico.layer.empty [ dim=['!', w=20, h=20] ]
+    pico.set.layer(blue)
+    pico.set.effect [ color=['!', r=0, g=0, b=0xFF] ]
+    pico.output.clear()
+
+    pico.set.layer(world)
+    pico.set.effect [ color=['!', r=0x20, g=0x20, b=0x20] ]
+    pico.output.clear()
+    pico.output.draw.layer(red,  ['!', x=20, y=20, w=20, h=20, anchor='NW'])
+    pico.output.draw.layer(blue, ['!', x=50, y=40, w=20, h=20, anchor='NW'])
+
+    val f1 = pico.output.screenshot(world, OUT ++ "shot-scene.png")
+    check(f1, ASR ++ "shot-scene.png")
+
+    val snap = pico.layer.screenshot [ sup=world ]
+    pico.output.clear()
+    pico.output.draw.layer(snap)
+    val f2 = pico.output.screenshot(world, OUT ++ "shot-scene-2.png")
+    check(f2, ASR ++ "shot-scene.png")
+}
+
+;; 3. capture a relative crop; resolves against the source layer (64x32)
+do {
+    print("screenshot layer - crop (pct)")
+    val snap = pico.layer.screenshot [ sup=empty1,
+        crop=['%', x=0, y=0, w=0.5, h=1.0, anchor='NW'] ]
+    pico.set.layer(snap)
+    val f = pico.output.screenshot(nil, OUT ++ "shot-snap-half.png")
+    pico.set.layer(world)
+    assert(f == OUT ++ "shot-snap-half.png")
+    check(f, ASR ++ "shot-snap-half.png")
+}
+
+;; 4. constructor target: screenshot layer placed via target field,
+;;    combined with crop; stored as scene.target (raw), then drawn
+;;    with no rect (uses the target) into world's SE quadrant
+do {
+    print("screenshot layer - target (+ crop)")
+    val r = ['%', x=1, y=1, w=0.5, h=0.5, anchor='SE']
+    val snap = pico.layer.screenshot [ sup=empty1,
+        crop=['%', x=0, y=0, w=0.5, h=1.0, anchor='NW'], target=r ]
+    pico.set.layer(snap)
+    val s = pico.get.scene()
+    assert(s.target@0 == '%')
+    assert(s.target.x==1 && s.target.y==1)
+    assert(s.target.w==0.5 && s.target.h==0.5)
+    pico.set.layer(world)
+    pico.set.effect [ color='black' ]
+    pico.output.clear()
+    pico.output.draw.layer(snap)
+    val f = pico.output.screenshot(world, OUT ++ "shot-snap-target.png")
+    assert(f == OUT ++ "shot-snap-target.png")
+    check(f, ASR ++ "shot-snap-target.png")
+}
+
+pico.close()

@@ -4,7 +4,7 @@ v0.8 (xxx/xx)
 Layout:
 
 - repository root is the Atmos binding; the C library moved to `c/`
-- Lua binding removed (`lua/`)
+- `pico.atm`: binding for Atmos, replaces the Lua binding (`lua/`)
 - games copied in: `exs/birds/`, `exs/rocks/`, `exs/storm/`
 
 Modifications (C API):

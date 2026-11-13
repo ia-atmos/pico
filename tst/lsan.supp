@@ -1,0 +1,3 @@
+# Leaks of the libraries under SDL, reported with ATMOS_ASAN=1.
+# Same as the clause `sdl-init` of c/valgrind.supp: SDL_Init, through dbus.
+leak:libdbus-1.so

@@ -1,0 +1,91 @@
+include "../pico.atm"
+
+val FONT = "../c/res/DejaVuSans.ttf"
+
+pico.open()
+
+;; pico.get.text
+do {
+    val dim = pico.get.text(['!', w=nil, h=10], "ABC")
+    assert(dim.w>0 && dim.h==11)
+
+    val pct = ['%', w=nil, h=0.1]
+    val ret = pico.get.text(pct, "ABC")
+    assert(ret == pct)
+    assert(math.floor(pct.w*100+0.5)==17 && math.floor(pct.h*100+0.5)==11)
+
+    val p = ['%', h=0.2]
+    pico.get.text(p, "ABC")
+    assert(math.floor(p.w*100)==36 && math.floor(p.h*100)==20)
+}
+
+;; numbers
+pico.output.draw.text(10, ['!', x=0, y=0, h=10, anchor='NW'])
+pico.output.clear()
+
+;; pico.output.draw.text
+do {
+    val r1 = ['!', x=10, y=10, w=0, h=10, anchor='NW']
+    pico.output.draw.text("hg - gh", r1)
+    pico.check("font-01")
+
+    val r2 = ['%', x=0.5, y=0.5, h=0.2]
+    pico.output.draw.text("hg - gh", r2)
+    pico.check("font-02")
+}
+
+pico.output.clear()
+
+;; pico.set.pencil [font=path]: DejaVuSans.ttf
+do {
+    pico.set.pencil [ font=FONT ]
+
+    val r1 = ['!', x=10, y=10, w=0, h=10, anchor='NW']
+    pico.output.draw.text("hg - gh", r1)
+    pico.check("font-03")
+
+    val r2 = ['%', x=0.5, y=0.5, h=0.2]
+    pico.output.draw.text("hg - gh", r2)
+    pico.check("font-04")
+}
+
+;; pico.set.pencil [font=false]: resets to the built-in font
+do {
+    assert(pico.get.pencil().font == FONT)
+    pico.set.pencil [ font=false ]
+    assert(pico.get.pencil().font == nil)
+    pico.output.clear()
+    pico.output.draw.text("hg - gh", ['!', x=10, y=10, w=0, h=10, anchor='NW'])
+    pico.check("font-01")
+}
+
+;; pico.set.pencil [font=box]: a font loaded explicitly draws the same
+do {
+    val f = pico.font.load(FONT)
+    assert(type(f) == 'native')
+    pico.set.pencil [ font=f ]
+    assert(pico.get.pencil().font == f)
+    pico.output.clear()
+    pico.output.draw.text("hg - gh", ['!', x=10, y=10, w=0, h=10, anchor='NW'])
+    pico.check("font-03")
+
+    ;; in use by the pencil
+    val ok, err = catch true { pico.font.free(f) }
+    assert(!ok)
+    print(err)
+
+    pico.set.pencil [ font=false ]
+    pico.font.free(f)
+    val ok2, err2 = catch true { pico.set.pencil [ font=f ] }
+    assert(!ok2)
+    print(err2)
+}
+
+;; errors
+do {
+    val ok, err = catch true { pico.set.pencil [ font="no-such-font.ttf" ] }
+    assert(!ok)
+    print(err)
+}
+
+pico.close()

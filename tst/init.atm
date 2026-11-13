@@ -1,0 +1,7 @@
+include "../pico.atm"
+
+pico.open()
+pico.close()
+pico.open()
+pico.check("init-01")
+pico.close()
