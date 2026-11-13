@@ -5,7 +5,7 @@ Layout:
 
 - repository root is the Atmos binding; the C library moved to `c/`
 - Lua binding removed (`lua/`)
-- games copied in: `birds/`, `rocks/`, `storm/`
+- games copied in: `exs/birds/`, `exs/rocks/`, `exs/storm/`
 
 Modifications (C API):
 
