@@ -5,7 +5,7 @@ A spaceship shooter game for 2 simultaneous players.
 Built with [Atmos][atmos] and [pico][pico].
 
 [atmos]: https://github.com/ia-atmos/lang
-[pico]:  https://github.com/ia-atmos/pico
+[pico]:  https://github.com/ia-atmos/env-pico
 
 # Install
 

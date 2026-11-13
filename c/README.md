@@ -114,8 +114,8 @@ sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf
 Clone `pico-sdl`:
 
 ```
-git clone https://github.com/ia-atmos/pico
-cd pico/c/      # executable is here
+git clone https://github.com/ia-atmos/env-pico
+cd env-pico/c/  # executable is here
 ```
 
 Run:

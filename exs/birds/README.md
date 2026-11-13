@@ -3,7 +3,7 @@
 An [Atmos][atmos] + [pico][pico] tutorial in 11 steps.
 
 [atmos]: https://github.com/ia-atmos/lang
-[pico]:  https://github.com/ia-atmos/pico
+[pico]:  https://github.com/ia-atmos/env-pico
 
 # Install
 
