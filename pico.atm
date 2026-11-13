@@ -175,36 +175,36 @@
 
 // A font or a sound. The struct is shared by the box and by what
 // depends on it (a pencil), so it outlives a box that is pinned.
-typedef struct PA_Res {
+typedef struct _PICO_ATMOS_Res {
     void* ptr;
     int   gen;          // generation of the `pico.open` that created it
     int   rc;
     int   font;         // font or sound
-} PA_Res;
+} _PICO_ATMOS_Res;
 
 enum {
-    PA_ROOT, PA_EMPTY, PA_IMAGE, PA_PIXMAP, PA_SHOT, PA_SUB, PA_TEXT, PA_VIDEO
+    _PICO_ATMOS_ROOT, _PICO_ATMOS_EMPTY, _PICO_ATMOS_IMAGE, _PICO_ATMOS_PIXMAP, _PICO_ATMOS_SHOT, _PICO_ATMOS_SUB, _PICO_ATMOS_TEXT, _PICO_ATMOS_VIDEO
 };
 
 // A layer. The struct is shared by the box and by what depends on it:
 // children, sub-layers, and the binding itself for the current layer.
-typedef struct PA_Lay {
+typedef struct _PICO_ATMOS_Lay {
     Pico_Layer*    lay;
     int            gen;
     int            rc;
     int            kind;
     int            subs;    // live sub-layers that borrow its texture
-    struct PA_Lay* up;      // parent it is attached to
-    struct PA_Lay* sup;     // source of a sub-layer
+    struct _PICO_ATMOS_Lay* up;      // parent it is attached to
+    struct _PICO_ATMOS_Lay* sup;     // source of a sub-layer
     AVal           font;    // font of its pencil, as set: box, path, or nil
-    PA_Res*        fres;    // the struct of that box
-} PA_Lay;
+    _PICO_ATMOS_Res*        fres;    // the struct of that box
+} _PICO_ATMOS_Lay;
 
 static struct {
     int     open;
     int     gen;            // incremented at every `pico.open`
     int     closing;        // the program terminates: no more calls to pico
-    PA_Lay* cur;
+    _PICO_ATMOS_Lay* cur;
     AVal    cur_box;
     AVal    world;
     AVal    window;
@@ -213,38 +213,38 @@ static struct {
         int x, y;           // until a real mouse event or `pico.set.mouse`
         int left;
     } mouse;
-} PA;
+} _PICO_ATMOS;
 
-static const char* PA_FN = "pico";      // function being executed
+static const char* _PICO_ATMOS_FN = "pico";      // function being executed
 
-static const char* PA_KIND_LAY = "pico.layer";
-static const char* PA_KIND_FNT = "pico.font";
-static const char* PA_KIND_SND = "pico.sound";
+static const char* _PICO_ATMOS_KIND_LAY = "pico.layer";
+static const char* _PICO_ATMOS_KIND_FNT = "pico.font";
+static const char* _PICO_ATMOS_KIND_SND = "pico.sound";
 
-#define PA_ARG(i) (((i) < argc) ? argv[i] : a_nil())
-#define PA_TRY(x) do { if (!(x)) return A_ERROR; } while (0)
-#define PA_IN0(name)                                                    \
+#define _PICO_ATMOS_ARG(i) (((i) < argc) ? argv[i] : a_nil())
+#define _PICO_ATMOS_TRY(x) do { if (!(x)) return A_ERROR; } while (0)
+#define _PICO_ATMOS_IN0(name)                                                    \
     (void) self; (void) argc; (void) argv;                              \
-    PA_FN = "pico." name;
-#define PA_IN(name)                                                     \
-    PA_IN0(name)                                                        \
-    if (!PA.open) {                                                     \
-        return a_error("%s : pico is not open", PA_FN);                 \
+    _PICO_ATMOS_FN = "pico." name;
+#define _PICO_ATMOS_IN(name)                                                     \
+    _PICO_ATMOS_IN0(name)                                                        \
+    if (!_PICO_ATMOS.open) {                                                     \
+        return a_error("%s : pico is not open", _PICO_ATMOS_FN);                 \
     }
 
-static int pa_live (int gen) {
-    return PA.open && !PA.closing && gen==PA.gen;
+static int _pico_atmos_live (int gen) {
+    return _PICO_ATMOS.open && !_PICO_ATMOS.closing && gen==_PICO_ATMOS.gen;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // RESOURCES
 ///////////////////////////////////////////////////////////////////////////////
 
-static void pa_res_unref (PA_Res* r) {
+static void _pico_atmos_res_unref (_PICO_ATMOS_Res* r) {
     if (r==NULL || --r->rc>0) {
         return;
     }
-    if (pa_live(r->gen)) {
+    if (_pico_atmos_live(r->gen)) {
         if (r->font) {
             pico_font_free(r->ptr);
         } else {
@@ -254,41 +254,41 @@ static void pa_res_unref (PA_Res* r) {
     free(r);
 }
 
-static void pa_res_fin (void* p) {
-    pa_res_unref(p);
+static void _pico_atmos_res_fin (void* p) {
+    _pico_atmos_res_unref(p);
 }
 
-static AVal pa_res_new (void* ptr, int font) {
-    PA_Res* r = malloc(sizeof(PA_Res));
-    *r = (PA_Res) { ptr, PA.gen, 1, font };
-    return a_nat(r, pa_res_fin, font ? PA_KIND_FNT : PA_KIND_SND);
+static AVal _pico_atmos_res_new (void* ptr, int font) {
+    _PICO_ATMOS_Res* r = malloc(sizeof(_PICO_ATMOS_Res));
+    *r = (_PICO_ATMOS_Res) { ptr, _PICO_ATMOS.gen, 1, font };
+    return a_nat(r, _pico_atmos_res_fin, font ? _PICO_ATMOS_KIND_FNT : _PICO_ATMOS_KIND_SND);
 }
 
-static void pa_lay_unref (PA_Lay* s) {
+static void _pico_atmos_lay_unref (_PICO_ATMOS_Lay* s) {
     while (s!=NULL && --s->rc==0) {
-        if (s->kind!=PA_ROOT && pa_live(s->gen)) {
+        if (s->kind!=_PICO_ATMOS_ROOT && _pico_atmos_live(s->gen)) {
             pico_layer_free(s->lay);
         }
-        PA_Lay* up  = s->up;
-        PA_Lay* sup = s->sup;
+        _PICO_ATMOS_Lay* up  = s->up;
+        _PICO_ATMOS_Lay* sup = s->sup;
         if (sup != NULL) {
             sup->subs--;
         }
-        pa_res_unref(s->fres);
+        _pico_atmos_res_unref(s->fres);
         a_dec(s->font);
         free(s);
-        pa_lay_unref(sup);
+        _pico_atmos_lay_unref(sup);
         s = up;
     }
 }
 
-static void pa_lay_fin (void* p) {
-    pa_lay_unref(p);
+static void _pico_atmos_lay_fin (void* p) {
+    _pico_atmos_lay_unref(p);
 }
 
-static AVal pa_lay_new (Pico_Layer* lay, int kind, PA_Lay* up, PA_Lay* sup) {
-    PA_Lay* s = malloc(sizeof(PA_Lay));
-    *s = (PA_Lay) { lay, PA.gen, 1, kind, 0, up, sup, a_nil(), NULL };
+static AVal _pico_atmos_lay_new (Pico_Layer* lay, int kind, _PICO_ATMOS_Lay* up, _PICO_ATMOS_Lay* sup) {
+    _PICO_ATMOS_Lay* s = malloc(sizeof(_PICO_ATMOS_Lay));
+    *s = (_PICO_ATMOS_Lay) { lay, _PICO_ATMOS.gen, 1, kind, 0, up, sup, a_nil(), NULL };
     if (up != NULL) {
         up->rc++;
     }
@@ -296,31 +296,31 @@ static AVal pa_lay_new (Pico_Layer* lay, int kind, PA_Lay* up, PA_Lay* sup) {
         sup->rc++;
         sup->subs++;
     }
-    return a_nat(s, pa_lay_fin, PA_KIND_LAY);
+    return a_nat(s, _pico_atmos_lay_fin, _PICO_ATMOS_KIND_LAY);
 }
 
 // Sets the box of the current layer.
-static void pa_cur (AVal box) {
-    PA_Lay* old = PA.cur;
-    PA.cur = a_nat_ptr(box);
-    PA.cur->rc++;
-    a_cpy(&PA.cur_box, box);
-    pa_lay_unref(old);
+static void _pico_atmos_cur (AVal box) {
+    _PICO_ATMOS_Lay* old = _PICO_ATMOS.cur;
+    _PICO_ATMOS.cur = a_nat_ptr(box);
+    _PICO_ATMOS.cur->rc++;
+    a_cpy(&_PICO_ATMOS.cur_box, box);
+    _pico_atmos_lay_unref(old);
 }
 
 // Releases what the binding holds. The layers themselves go with pico.
-static void pa_release (void) {
-    PA_Lay* cur = PA.cur;
-    PA.cur = NULL;
-    a_clr(&PA.cur_box);
-    a_clr(&PA.world);
-    a_clr(&PA.window);
-    pa_lay_unref(cur);
+static void _pico_atmos_release (void) {
+    _PICO_ATMOS_Lay* cur = _PICO_ATMOS.cur;
+    _PICO_ATMOS.cur = NULL;
+    a_clr(&_PICO_ATMOS.cur_box);
+    a_clr(&_PICO_ATMOS.world);
+    a_clr(&_PICO_ATMOS.window);
+    _pico_atmos_lay_unref(cur);
 }
 
-static void pa_close (void) {
-    PA.open = 0;
-    pa_release();
+static void _pico_atmos_close (void) {
+    _PICO_ATMOS.open = 0;
+    _pico_atmos_release();
     pico_close();
 }
 
@@ -328,13 +328,13 @@ static void pa_close (void) {
 // ARGUMENTS
 ///////////////////////////////////////////////////////////////////////////////
 
-static AStatus pa_bad (int i, const char* exp, AVal got) {
+static AStatus _pico_atmos_bad (int i, const char* exp, AVal got) {
     return a_error("%s : bad argument #%d (%s expected, got %s)",
-        PA_FN, i+1, exp, a_typename(got));
+        _PICO_ATMOS_FN, i+1, exp, a_typename(got));
 }
 
 // Field of a table (borrowed).
-static AVal pa_get (AVal t, const char* k) {
+static AVal _pico_atmos_get (AVal t, const char* k) {
     AVal key = a_strz(k);
     AVal v = a_tab_get(A_TAB_OF(t), key);
     a_dec(key);
@@ -342,55 +342,55 @@ static AVal pa_get (AVal t, const char* k) {
 }
 
 // Sets a field of a table, consuming the value.
-static void pa_set (AVal t, const char* k, AVal v) {
+static void _pico_atmos_set (AVal t, const char* k, AVal v) {
     AVal key = a_strz(k);
     a_setindex(t, key, v);
     a_dec(key);
     a_dec(v);
 }
 
-static void pa_set0 (AVal t, char mode) {
+static void _pico_atmos_set0 (AVal t, char mode) {
     AVal v = a_str(&mode, 1);
     a_setindex(t, a_int(0), v);
     a_dec(v);
 }
 
-static int pa_tab (AVal v, const char* what) {
+static int _pico_atmos_tab (AVal v, const char* what) {
     if (v.type != A_TAB) {
-        a_error("%s : expected %s table, got %s", PA_FN, what, a_typename(v));
+        a_error("%s : expected %s table, got %s", _PICO_ATMOS_FN, what, a_typename(v));
         return 0;
     }
     return 1;
 }
 
 // Numeric field of a table. If absent: 0 if optional, else an error.
-static int pa_num (AVal t, const char* k, int req, float* out) {
-    AVal v = pa_get(t, k);
+static int _pico_atmos_num (AVal t, const char* k, int req, float* out) {
+    AVal v = _pico_atmos_get(t, k);
     if (v.type==A_NIL && !req) {
         *out = 0;
         return 1;
     }
     if (!a_isnum(v)) {
-        a_error("%s : expected numeric field '%s'", PA_FN, k);
+        a_error("%s : expected numeric field '%s'", _PICO_ATMOS_FN, k);
         return 0;
     }
     *out = (float) a_dbl(v);
     return 1;
 }
 
-static int pa_int (AVal v, int i, int* out) {
+static int _pico_atmos_int (AVal v, int i, int* out) {
     int64_t n;
     if (!a_toint(v, &n)) {
-        pa_bad(i, "integer", v);
+        _pico_atmos_bad(i, "integer", v);
         return 0;
     }
     *out = (int) n;
     return 1;
 }
 
-static int pa_str (AVal v, int i, const char** out) {
+static int _pico_atmos_str (AVal v, int i, const char** out) {
     if (v.type != A_STR) {
-        pa_bad(i, "string", v);
+        _pico_atmos_bad(i, "string", v);
         return 0;
     }
     *out = A_STR_OF(v)->s;
@@ -398,10 +398,10 @@ static int pa_str (AVal v, int i, const char** out) {
 }
 
 // A file that must exist, since pico aborts otherwise.
-static int pa_file (const char* path) {
+static int _pico_atmos_file (const char* path) {
     FILE* f = fopen(path, "rb");
     if (f == NULL) {
-        a_error("%s : cannot open file \"%s\"", PA_FN, path);
+        a_error("%s : cannot open file \"%s\"", _PICO_ATMOS_FN, path);
         return 0;
     }
     fclose(f);
@@ -409,7 +409,7 @@ static int pa_file (const char* path) {
 }
 
 // A text as a string (owned): numbers are converted.
-static int pa_text (AVal v, int i, AVal* out) {
+static int _pico_atmos_text (AVal v, int i, AVal* out) {
     if (v.type == A_STR) {
         a_inc(v);
         *out = v;
@@ -419,12 +419,12 @@ static int pa_text (AVal v, int i, AVal* out) {
         *out = a_tostring(v);
         return 1;
     }
-    pa_bad(i, "string", v);
+    _pico_atmos_bad(i, "string", v);
     return 0;
 }
 
 // Mode string ('!', '%', '#'), or 0.
-static char pa_mode_s (AVal v) {
+static char _pico_atmos_mode_s (AVal v) {
     if (v.type!=A_STR || A_STR_OF(v)->len!=1) {
         return '\0';
     }
@@ -433,25 +433,25 @@ static char pa_mode_s (AVal v) {
 }
 
 // Mode at index 0 of a table. If absent: '!' if optional.
-static int pa_mode_t (AVal t, int req, char* out) {
+static int _pico_atmos_mode_t (AVal t, int req, char* out) {
     AVal v = a_tab_get(A_TAB_OF(t), a_int(0));
     char mode = '!';
     if (v.type == A_STR) {
         mode = A_STR_OF(v)->s[0];
     } else if (v.type!=A_NIL || req) {
-        a_error("%s : invalid mode at index 0", PA_FN);
+        a_error("%s : invalid mode at index 0", _PICO_ATMOS_FN);
         return 0;
     }
     if (mode!='!' && mode!='%' && mode!='#') {
         a_error("%s : invalid mode '%c': expected '!', '%%', or '#'",
-            PA_FN, mode);
+            _PICO_ATMOS_FN, mode);
         return 0;
     }
     *out = mode;
     return 1;
 }
 
-static const struct { const char* name; const Pico_Color* clr; } PA_COLORS[] = {
+static const struct { const char* name; const Pico_Color* clr; } _PICO_ATMOS_COLORS[] = {
     { "black",   &PICO_COLOR_BLACK   }, { "white",   &PICO_COLOR_WHITE   },
     { "gray",    &PICO_COLOR_GRAY    }, { "silver",  &PICO_COLOR_SILVER  },
     { "red",     &PICO_COLOR_RED     }, { "green",   &PICO_COLOR_GREEN   },
@@ -466,38 +466,38 @@ static const struct { const char* name; const Pico_Color* clr; } PA_COLORS[] = {
 };
 
 // 'red' | 0xRRGGBB | ['!'|'%', r=, g=, b=, a=]
-static int pa_color (AVal v, Pico_Color* out) {
+static int _pico_atmos_color (AVal v, Pico_Color* out) {
     if (v.type == A_STR) {
-        for (size_t i=0; i<sizeof(PA_COLORS)/sizeof(PA_COLORS[0]); i++) {
-            if (!strcmp(PA_COLORS[i].name, A_STR_OF(v)->s)) {
-                *out = *PA_COLORS[i].clr;
+        for (size_t i=0; i<sizeof(_PICO_ATMOS_COLORS)/sizeof(_PICO_ATMOS_COLORS[0]); i++) {
+            if (!strcmp(_PICO_ATMOS_COLORS[i].name, A_STR_OF(v)->s)) {
+                *out = *_PICO_ATMOS_COLORS[i].clr;
                 return 1;
             }
         }
-        a_error("%s : invalid color \"%s\"", PA_FN, A_STR_OF(v)->s);
+        a_error("%s : invalid color \"%s\"", _PICO_ATMOS_FN, A_STR_OF(v)->s);
         return 0;
     }
     if (v.type == A_INT) {
         *out = pico_color_hex((uint32_t) v.u.i);
         return 1;
     }
-    if (!pa_tab(v, "color")) {
+    if (!_pico_atmos_tab(v, "color")) {
         return 0;
     }
     char mode;
-    if (!pa_mode_t(v, 0, &mode)) {
+    if (!_pico_atmos_mode_t(v, 0, &mode)) {
         return 0;
     }
     if (mode == '#') {
-        a_error("%s : invalid mode '%c': expected '!', '%%'", PA_FN, mode);
+        a_error("%s : invalid mode '%c': expected '!', '%%'", _PICO_ATMOS_FN, mode);
         return 0;
     }
     float r, g, b;
     float a = (mode == '%') ? 1.0 : 0xFF;
-    if (pa_get(v,"a").type!=A_NIL && !pa_num(v,"a",1,&a)) {
+    if (_pico_atmos_get(v,"a").type!=A_NIL && !_pico_atmos_num(v,"a",1,&a)) {
         return 0;
     }
-    if (!pa_num(v,"r",1,&r) || !pa_num(v,"g",1,&g) || !pa_num(v,"b",1,&b)) {
+    if (!_pico_atmos_num(v,"r",1,&r) || !_pico_atmos_num(v,"g",1,&g) || !_pico_atmos_num(v,"b",1,&b)) {
         return 0;
     }
     if (mode == '%') {
@@ -508,60 +508,60 @@ static int pa_color (AVal v, Pico_Color* out) {
     return 1;
 }
 
-static const struct { const char* name; const Pico_Anchor* anc; } PA_ANCHORS[] = {
+static const struct { const char* name; const Pico_Anchor* anc; } _PICO_ATMOS_ANCHORS[] = {
     { "C",  &PICO_ANCHOR_C  }, { "NW", &PICO_ANCHOR_NW }, { "N",  &PICO_ANCHOR_N  },
     { "NE", &PICO_ANCHOR_NE }, { "E",  &PICO_ANCHOR_E  }, { "SE", &PICO_ANCHOR_SE },
     { "S",  &PICO_ANCHOR_S  }, { "SW", &PICO_ANCHOR_SW }, { "W",  &PICO_ANCHOR_W  },
 };
 
 // Field `anchor` of a table: 'NW' | [x=,y=], or 'C' if absent.
-static int pa_anchor (AVal t, Pico_Anchor* out) {
-    AVal v = pa_get(t, "anchor");
+static int _pico_atmos_anchor (AVal t, Pico_Anchor* out) {
+    AVal v = _pico_atmos_get(t, "anchor");
     if (v.type == A_NIL) {
         *out = PICO_ANCHOR_C;
         return 1;
     }
     if (v.type == A_STR) {
-        for (size_t i=0; i<sizeof(PA_ANCHORS)/sizeof(PA_ANCHORS[0]); i++) {
-            if (!strcmp(PA_ANCHORS[i].name, A_STR_OF(v)->s)) {
-                *out = *PA_ANCHORS[i].anc;
+        for (size_t i=0; i<sizeof(_PICO_ATMOS_ANCHORS)/sizeof(_PICO_ATMOS_ANCHORS[0]); i++) {
+            if (!strcmp(_PICO_ATMOS_ANCHORS[i].name, A_STR_OF(v)->s)) {
+                *out = *_PICO_ATMOS_ANCHORS[i].anc;
                 return 1;
             }
         }
-        a_error("%s : invalid anchor \"%s\"", PA_FN, A_STR_OF(v)->s);
+        a_error("%s : invalid anchor \"%s\"", _PICO_ATMOS_FN, A_STR_OF(v)->s);
         return 0;
     }
     if (v.type == A_TAB) {
-        return pa_num(v,"x",1,&out->x) && pa_num(v,"y",1,&out->y);
+        return _pico_atmos_num(v,"x",1,&out->x) && _pico_atmos_num(v,"y",1,&out->y);
     }
-    a_error("%s : invalid anchor", PA_FN);
+    a_error("%s : invalid anchor", _PICO_ATMOS_FN);
     return 0;
 }
 
-static int pa_rect (AVal v, Pico_Rel_Rect* r) {
-    return pa_tab(v, "rect")
-        && pa_mode_t(v, 1, &r->mode)
-        && pa_num(v, "x", 1, &r->x) && pa_num(v, "y", 1, &r->y)
-        && pa_num(v, "w", 0, &r->w) && pa_num(v, "h", 0, &r->h)
-        && pa_anchor(v, &r->anchor);
+static int _pico_atmos_rect (AVal v, Pico_Rel_Rect* r) {
+    return _pico_atmos_tab(v, "rect")
+        && _pico_atmos_mode_t(v, 1, &r->mode)
+        && _pico_atmos_num(v, "x", 1, &r->x) && _pico_atmos_num(v, "y", 1, &r->y)
+        && _pico_atmos_num(v, "w", 0, &r->w) && _pico_atmos_num(v, "h", 0, &r->h)
+        && _pico_atmos_anchor(v, &r->anchor);
 }
 
-static int pa_dim (AVal v, Pico_Rel_Dim* d) {
-    return pa_tab(v, "dim")
-        && pa_mode_t(v, 1, &d->mode)
-        && pa_num(v, "w", 0, &d->w) && pa_num(v, "h", 0, &d->h);
+static int _pico_atmos_dim (AVal v, Pico_Rel_Dim* d) {
+    return _pico_atmos_tab(v, "dim")
+        && _pico_atmos_mode_t(v, 1, &d->mode)
+        && _pico_atmos_num(v, "w", 0, &d->w) && _pico_atmos_num(v, "h", 0, &d->h);
 }
 
-static int pa_pos (AVal v, Pico_Rel_Pos* p) {
-    return pa_tab(v, "pos")
-        && pa_mode_t(v, 1, &p->mode)
-        && pa_num(v, "x", 1, &p->x) && pa_num(v, "y", 1, &p->y)
-        && pa_anchor(v, &p->anchor);
+static int _pico_atmos_pos (AVal v, Pico_Rel_Pos* p) {
+    return _pico_atmos_tab(v, "pos")
+        && _pico_atmos_mode_t(v, 1, &p->mode)
+        && _pico_atmos_num(v, "x", 1, &p->x) && _pico_atmos_num(v, "y", 1, &p->y)
+        && _pico_atmos_anchor(v, &p->anchor);
 }
 
 // Vector of positions (malloc'ed).
-static int pa_poss (AVal v, int* n, Pico_Rel_Pos** ps) {
-    if (!pa_tab(v, "positions")) {
+static int _pico_atmos_poss (AVal v, int* n, Pico_Rel_Pos** ps) {
+    if (!_pico_atmos_tab(v, "positions")) {
         return 0;
     }
     *n  = A_TAB_OF(v)->an;
@@ -569,9 +569,9 @@ static int pa_poss (AVal v, int* n, Pico_Rel_Pos** ps) {
     for (int i=0; i<*n; i++) {
         AVal p = a_tab_get(A_TAB_OF(v), a_int(i));
         if (p.type != A_TAB) {
-            a_error("%s : expected position at index %d", PA_FN, i);
+            a_error("%s : expected position at index %d", _PICO_ATMOS_FN, i);
         }
-        if (p.type!=A_TAB || !pa_pos(p, &(*ps)[i])) {
+        if (p.type!=A_TAB || !_pico_atmos_pos(p, &(*ps)[i])) {
             free(*ps);
             return 0;
         }
@@ -580,33 +580,33 @@ static int pa_poss (AVal v, int* n, Pico_Rel_Pos** ps) {
 }
 
 // Matrix of colors (malloc'ed).
-static int pa_pixmap (AVal v, Pico_Abs_Dim* dim, Pico_Color** buf) {
+static int _pico_atmos_pixmap (AVal v, Pico_Abs_Dim* dim, Pico_Color** buf) {
     if (v.type != A_TAB) {
-        a_error("%s : required 'pixels' table", PA_FN);
+        a_error("%s : required 'pixels' table", _PICO_ATMOS_FN);
         return 0;
     }
     AVal row0 = a_tab_get(A_TAB_OF(v), a_int(0));
     if (row0.type != A_TAB) {
-        a_error("%s : expected row tables", PA_FN);
+        a_error("%s : expected row tables", _PICO_ATMOS_FN);
         return 0;
     }
     dim->h = A_TAB_OF(v)->an;
     dim->w = A_TAB_OF(row0)->an;
     if (dim->w == 0) {
-        a_error("%s : expected row tables", PA_FN);
+        a_error("%s : expected row tables", _PICO_ATMOS_FN);
         return 0;
     }
     *buf = malloc(dim->w * dim->h * sizeof(Pico_Color));
     for (int y=0; y<dim->h; y++) {
         AVal row = a_tab_get(A_TAB_OF(v), a_int(y));
         if (row.type != A_TAB) {
-            a_error("%s : expected table at row %d", PA_FN, y);
+            a_error("%s : expected table at row %d", _PICO_ATMOS_FN, y);
             free(*buf);
             return 0;
         }
         for (int x=0; x<dim->w; x++) {
             AVal c = a_tab_get(A_TAB_OF(row), a_int(x));
-            if (!pa_color(c, &(*buf)[y*dim->w + x])) {
+            if (!_pico_atmos_color(c, &(*buf)[y*dim->w + x])) {
                 free(*buf);
                 return 0;
             }
@@ -615,19 +615,19 @@ static int pa_pixmap (AVal v, Pico_Abs_Dim* dim, Pico_Color** buf) {
     return 1;
 }
 
-static int pa_is_lay (AVal v) {
-    return a_nat_is(v, PA_KIND_LAY);
+static int _pico_atmos_is_lay (AVal v) {
+    return a_nat_is(v, _PICO_ATMOS_KIND_LAY);
 }
 
 // A layer box that is still valid.
-static int pa_lay (AVal v, PA_Lay** out) {
-    if (!pa_is_lay(v)) {
-        a_error("%s : expected layer, got %s", PA_FN, a_typename(v));
+static int _pico_atmos_lay (AVal v, _PICO_ATMOS_Lay** out) {
+    if (!_pico_atmos_is_lay(v)) {
+        a_error("%s : expected layer, got %s", _PICO_ATMOS_FN, a_typename(v));
         return 0;
     }
-    PA_Lay* s = a_nat_ptr(v);
-    if (s==NULL || s->gen!=PA.gen) {
-        a_error("%s : invalid layer : it was released or pico was closed", PA_FN);
+    _PICO_ATMOS_Lay* s = a_nat_ptr(v);
+    if (s==NULL || s->gen!=_PICO_ATMOS.gen) {
+        a_error("%s : invalid layer : it was released or pico was closed", _PICO_ATMOS_FN);
         return 0;
     }
     *out = s;
@@ -635,9 +635,9 @@ static int pa_lay (AVal v, PA_Lay** out) {
 }
 
 // A layer box or nil, as a layer or NULL (the current one).
-static int pa_lay_opt (AVal v, Pico_Layer** lay, PA_Lay** out) {
-    PA_Lay* s = NULL;
-    if (v.type!=A_NIL && !pa_lay(v, &s)) {
+static int _pico_atmos_lay_opt (AVal v, Pico_Layer** lay, _PICO_ATMOS_Lay** out) {
+    _PICO_ATMOS_Lay* s = NULL;
+    if (v.type!=A_NIL && !_pico_atmos_lay(v, &s)) {
         return 0;
     }
     *lay = (s == NULL) ? NULL : s->lay;
@@ -648,16 +648,16 @@ static int pa_lay_opt (AVal v, Pico_Layer** lay, PA_Lay** out) {
 }
 
 // A font or sound box that is still valid.
-static int pa_res (AVal v, const char* kind, PA_Res** out) {
-    const char* name = (kind == PA_KIND_FNT) ? "font" : "sound";
+static int _pico_atmos_res (AVal v, const char* kind, _PICO_ATMOS_Res** out) {
+    const char* name = (kind == _PICO_ATMOS_KIND_FNT) ? "font" : "sound";
     if (!a_nat_is(v, kind)) {
-        a_error("%s : expected %s, got %s", PA_FN, name, a_typename(v));
+        a_error("%s : expected %s, got %s", _PICO_ATMOS_FN, name, a_typename(v));
         return 0;
     }
-    PA_Res* r = a_nat_ptr(v);
-    if (r==NULL || r->gen!=PA.gen) {
+    _PICO_ATMOS_Res* r = a_nat_ptr(v);
+    if (r==NULL || r->gen!=_PICO_ATMOS.gen) {
         a_error("%s : invalid %s : it was released or pico was closed",
-            PA_FN, name);
+            _PICO_ATMOS_FN, name);
         return 0;
     }
     *out = r;
@@ -667,11 +667,11 @@ static int pa_res (AVal v, const char* kind, PA_Res** out) {
 // Matches the arguments against the slots (L1, v1, L2, v2): a layer
 // slot takes a layer, a value slot takes anything else, nil fills any
 // slot, and a mismatch leaves the slot empty.
-static void pa_match4 (int argc, AVal* argv, AVal out[4]) {
+static void _pico_atmos_match4 (int argc, AVal* argv, AVal out[4]) {
     int i = 0;
     for (int s=0; s<4; s++) {
-        AVal a = PA_ARG(i);
-        if (a.type==A_NIL || pa_is_lay(a)==(s%2 == 0)) {
+        AVal a = _PICO_ATMOS_ARG(i);
+        if (a.type==A_NIL || _pico_atmos_is_lay(a)==(s%2 == 0)) {
             out[s] = a;
             i++;
         } else {
@@ -684,86 +684,86 @@ static void pa_match4 (int argc, AVal* argv, AVal out[4]) {
 // RESULTS (all owned)
 ///////////////////////////////////////////////////////////////////////////////
 
-static AVal pa_mk_anchor (Pico_Anchor a) {
+static AVal _pico_atmos_mk_anchor (Pico_Anchor a) {
     AVal t = a_tab();
-    pa_set(t, "x", a_num(a.x));
-    pa_set(t, "y", a_num(a.y));
+    _pico_atmos_set(t, "x", a_num(a.x));
+    _pico_atmos_set(t, "y", a_num(a.y));
     return t;
 }
 
-static AVal pa_mk_color (Pico_Color c) {
+static AVal _pico_atmos_mk_color (Pico_Color c) {
     AVal t = a_tab();
-    pa_set(t, "r", a_int(c.r));
-    pa_set(t, "g", a_int(c.g));
-    pa_set(t, "b", a_int(c.b));
-    pa_set(t, "a", a_int(c.a));
+    _pico_atmos_set(t, "r", a_int(c.r));
+    _pico_atmos_set(t, "g", a_int(c.g));
+    _pico_atmos_set(t, "b", a_int(c.b));
+    _pico_atmos_set(t, "a", a_int(c.a));
     return t;
 }
 
-static AVal pa_mk_rect (Pico_Rel_Rect r) {
+static AVal _pico_atmos_mk_rect (Pico_Rel_Rect r) {
     AVal t = a_tab();
-    pa_set0(t, r.mode);
-    pa_set(t, "x", a_num(r.x));
-    pa_set(t, "y", a_num(r.y));
-    pa_set(t, "w", a_num(r.w));
-    pa_set(t, "h", a_num(r.h));
-    pa_set(t, "anchor", pa_mk_anchor(r.anchor));
+    _pico_atmos_set0(t, r.mode);
+    _pico_atmos_set(t, "x", a_num(r.x));
+    _pico_atmos_set(t, "y", a_num(r.y));
+    _pico_atmos_set(t, "w", a_num(r.w));
+    _pico_atmos_set(t, "h", a_num(r.h));
+    _pico_atmos_set(t, "anchor", _pico_atmos_mk_anchor(r.anchor));
     return t;
 }
 
-static AVal pa_mk_pos (Pico_Rel_Pos p) {
+static AVal _pico_atmos_mk_pos (Pico_Rel_Pos p) {
     AVal t = a_tab();
-    pa_set0(t, p.mode);
-    pa_set(t, "x", a_num(p.x));
-    pa_set(t, "y", a_num(p.y));
-    pa_set(t, "anchor", pa_mk_anchor(p.anchor));
+    _pico_atmos_set0(t, p.mode);
+    _pico_atmos_set(t, "x", a_num(p.x));
+    _pico_atmos_set(t, "y", a_num(p.y));
+    _pico_atmos_set(t, "anchor", _pico_atmos_mk_anchor(p.anchor));
     return t;
 }
 
-static AVal pa_mk_dim (char mode, double w, double h) {
+static AVal _pico_atmos_mk_dim (char mode, double w, double h) {
     AVal t = a_tab();
-    pa_set0(t, mode);
-    pa_set(t, "w", a_numi(w));
-    pa_set(t, "h", a_numi(h));
+    _pico_atmos_set0(t, mode);
+    _pico_atmos_set(t, "w", a_numi(w));
+    _pico_atmos_set(t, "h", a_numi(h));
     return t;
 }
 
-static void pa_fill_keyboard (AVal t, Pico_Keyboard k) {
-    pa_set(t, "key",   a_strz(SDL_GetKeyName(k.key)));
-    pa_set(t, "ctrl",  a_bool(k.ctrl));
-    pa_set(t, "shift", a_bool(k.shift));
-    pa_set(t, "alt",   a_bool(k.alt));
+static void _pico_atmos_fill_keyboard (AVal t, Pico_Keyboard k) {
+    _pico_atmos_set(t, "key",   a_strz(SDL_GetKeyName(k.key)));
+    _pico_atmos_set(t, "ctrl",  a_bool(k.ctrl));
+    _pico_atmos_set(t, "shift", a_bool(k.shift));
+    _pico_atmos_set(t, "alt",   a_bool(k.alt));
 }
 
-static void pa_fill_mouse (AVal t, Pico_Mouse m) {
-    pa_set0(t, m.mode);
-    pa_set(t, "x", a_num(m.x));
-    pa_set(t, "y", a_num(m.y));
-    pa_set(t, "anchor", pa_mk_anchor(m.anchor));
-    pa_set(t, "left",   a_bool(m.left));
-    pa_set(t, "right",  a_bool(m.right));
-    pa_set(t, "middle", a_bool(m.middle));
+static void _pico_atmos_fill_mouse (AVal t, Pico_Mouse m) {
+    _pico_atmos_set0(t, m.mode);
+    _pico_atmos_set(t, "x", a_num(m.x));
+    _pico_atmos_set(t, "y", a_num(m.y));
+    _pico_atmos_set(t, "anchor", _pico_atmos_mk_anchor(m.anchor));
+    _pico_atmos_set(t, "left",   a_bool(m.left));
+    _pico_atmos_set(t, "right",  a_bool(m.right));
+    _pico_atmos_set(t, "middle", a_bool(m.middle));
 }
 
 // The state of the mouse, as `pico_get_mouse`, except that the mouse of
 // PICO_ATM_MOUSE replaces the real one while it is active.
-static Pico_Mouse pa_mouse (Pico_Layer* lay, Pico_Rel_Pos* pos) {
-    if (!PA.mouse.on) {
+static Pico_Mouse _pico_atmos_mouse (Pico_Layer* lay, Pico_Rel_Pos* pos) {
+    if (!_PICO_ATMOS.mouse.on) {
         return pico_get_mouse(lay, pos);
     }
     Pico_Mouse m = {
         .mode   = pos->mode,
         .anchor = pos->anchor,
-        .left   = PA.mouse.left,
+        .left   = _PICO_ATMOS.mouse.left,
     };
-    Pico_Rel_Pos phy = { '!', {PA.mouse.x, PA.mouse.y}, PICO_ANCHOR_NW };
+    Pico_Rel_Pos phy = { '!', {_PICO_ATMOS.mouse.x, _PICO_ATMOS.mouse.y}, PICO_ANCHOR_NW };
     pico_cv_pos(lay, pos, pico_layer_window(), &phy);
     m.x = pos->x;
     m.y = pos->y;
     return m;
 }
 
-static const struct { const char* name; int id; } PA_EVENTS[] = {
+static const struct { const char* name; int id; } _PICO_ATMOS_EVENTS[] = {
     { "quit",            PICO_EVENT_QUIT            },
     { "window.resize",   PICO_EVENT_WINDOW_RESIZE   },
     { "key.dn",          PICO_EVENT_KEY_DN          },
@@ -772,14 +772,14 @@ static const struct { const char* name; int id; } PA_EVENTS[] = {
     { "mouse.button.dn", PICO_EVENT_MOUSE_BUTTON_DN },
     { "mouse.button.up", PICO_EVENT_MOUSE_BUTTON_UP },
 };
-#define PA_NEVENTS ((int)(sizeof(PA_EVENTS)/sizeof(PA_EVENTS[0])))
+#define _PICO_ATMOS_NEVENTS ((int)(sizeof(_PICO_ATMOS_EVENTS)/sizeof(_PICO_ATMOS_EVENTS[0])))
 
 // An event as a tagged table: `:key.dn [key='A', ...]`.
-static AVal pa_mk_event (Pico_Event* e) {
+static AVal _pico_atmos_mk_event (Pico_Event* e) {
     AVal t = a_tab();
-    for (int i=0; i<PA_NEVENTS; i++) {
-        if (PA_EVENTS[i].id == (int)e->type) {
-            AVal tag = a_strz(PA_EVENTS[i].name);
+    for (int i=0; i<_PICO_ATMOS_NEVENTS; i++) {
+        if (_PICO_ATMOS_EVENTS[i].id == (int)e->type) {
+            AVal tag = a_strz(_PICO_ATMOS_EVENTS[i].name);
             a_tag(t, tag);
             a_dec(tag);
         }
@@ -787,16 +787,16 @@ static AVal pa_mk_event (Pico_Event* e) {
     switch (e->type) {
         case PICO_EVENT_KEY_DN:
         case PICO_EVENT_KEY_UP:
-            pa_fill_keyboard(t, e->keyboard);
+            _pico_atmos_fill_keyboard(t, e->keyboard);
             break;
         case PICO_EVENT_MOUSE_MOTION:
         case PICO_EVENT_MOUSE_BUTTON_DN:
         case PICO_EVENT_MOUSE_BUTTON_UP:
-            pa_fill_mouse(t, e->mouse);
+            _pico_atmos_fill_mouse(t, e->mouse);
             break;
         case PICO_EVENT_WINDOW_RESIZE:
-            pa_set(t, "w", a_int(e->window.w));
-            pa_set(t, "h", a_int(e->window.h));
+            _pico_atmos_set(t, "w", a_int(e->window.w));
+            _pico_atmos_set(t, "h", a_int(e->window.h));
             break;
         default:
             break;
@@ -804,11 +804,11 @@ static AVal pa_mk_event (Pico_Event* e) {
     return t;
 }
 
-static const char* PA_STYLES[] = { "fill", "stroke" };
-static const char* PA_FLIPS[]  = { "none", "horizontal", "vertical", "both" };
+static const char* _PICO_ATMOS_STYLES[] = { "fill", "stroke" };
+static const char* _PICO_ATMOS_FLIPS[]  = { "none", "horizontal", "vertical", "both" };
 
 // Index of a name in a list, or an error.
-static int pa_enum (AVal v, const char* what, const char** names, int n, int* out) {
+static int _pico_atmos_enum (AVal v, const char* what, const char** names, int n, int* out) {
     if (v.type == A_STR) {
         for (int i=0; i<n; i++) {
             if (!strcmp(names[i], A_STR_OF(v)->s)) {
@@ -816,9 +816,9 @@ static int pa_enum (AVal v, const char* what, const char** names, int n, int* ou
                 return 1;
             }
         }
-        a_error("%s : invalid %s \"%s\"", PA_FN, what, A_STR_OF(v)->s);
+        a_error("%s : invalid %s \"%s\"", _PICO_ATMOS_FN, what, A_STR_OF(v)->s);
     } else {
-        a_error("%s : invalid %s", PA_FN, what);
+        a_error("%s : invalid %s", _PICO_ATMOS_FN, what);
     }
     return 0;
 }
@@ -828,49 +828,49 @@ static int pa_enum (AVal v, const char* what, const char** names, int n, int* ou
 ///////////////////////////////////////////////////////////////////////////////
 
 // pico.open([title=, fs=|fullscreen=, show=])
-static AStatus l_open (AFunc* self, int argc, AVal* argv) {
-    PA_IN0("open")
-    if (PA.open) {
-        return a_error("%s : pico is already open", PA_FN);
+static AStatus _pico_atmos_l_open (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN0("open")
+    if (_PICO_ATMOS.open) {
+        return a_error("%s : pico is already open", _PICO_ATMOS_FN);
     }
     Pico_Window win = { .fs=0, .show=1, .title=NULL };
-    AVal t = PA_ARG(0);
+    AVal t = _PICO_ATMOS_ARG(0);
     if (t.type != A_NIL) {
-        PA_TRY(pa_tab(t, "window"));
-        AVal fs = pa_get(t, "fs");
+        _PICO_ATMOS_TRY(_pico_atmos_tab(t, "window"));
+        AVal fs = _pico_atmos_get(t, "fs");
         if (fs.type == A_NIL) {
-            fs = pa_get(t, "fullscreen");
+            fs = _pico_atmos_get(t, "fullscreen");
         }
-        AVal show  = pa_get(t, "show");
-        AVal title = pa_get(t, "title");
+        AVal show  = _pico_atmos_get(t, "show");
+        AVal title = _pico_atmos_get(t, "title");
         win.fs = a_truthy(fs);
         if (show.type != A_NIL) {
             win.show = a_truthy(show);
         }
         if (title.type != A_NIL) {
-            PA_TRY(pa_str(title, 0, &win.title));
+            _PICO_ATMOS_TRY(_pico_atmos_str(title, 0, &win.title));
         }
     }
     pico_open(&win);
-    PA.open = 1;
-    PA.mouse.on = 0;
-    PA.gen++;
-    a_set(&PA.world,  pa_lay_new(pico_layer_world(),  PA_ROOT, NULL, NULL));
-    a_set(&PA.window, pa_lay_new(pico_layer_window(), PA_ROOT, NULL, NULL));
-    pa_cur(PA.world);
+    _PICO_ATMOS.open = 1;
+    _PICO_ATMOS.mouse.on = 0;
+    _PICO_ATMOS.gen++;
+    a_set(&_PICO_ATMOS.world,  _pico_atmos_lay_new(pico_layer_world(),  _PICO_ATMOS_ROOT, NULL, NULL));
+    a_set(&_PICO_ATMOS.window, _pico_atmos_lay_new(pico_layer_window(), _PICO_ATMOS_ROOT, NULL, NULL));
+    _pico_atmos_cur(_PICO_ATMOS.world);
     return A_OK;
 }
 
 // pico.close()
-static AStatus l_close (AFunc* self, int argc, AVal* argv) {
-    PA_IN("close")
-    pa_close();
+static AStatus _pico_atmos_l_close (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("close")
+    _pico_atmos_close();
     return A_OK;
 }
 
 // pico.quit()
-static AStatus l_quit (AFunc* self, int argc, AVal* argv) {
-    PA_IN("quit")
+static AStatus _pico_atmos_l_quit (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("quit")
     pico_quit();
     return A_OK;
 }
@@ -880,150 +880,150 @@ static AStatus l_quit (AFunc* self, int argc, AVal* argv) {
 ///////////////////////////////////////////////////////////////////////////////
 
 // pico.cv.dim([L_to,] to|mode, [L_fr,] fr)
-static AStatus l_cv_dim (AFunc* self, int argc, AVal* argv) {
-    PA_IN("cv.dim")
+static AStatus _pico_atmos_l_cv_dim (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("cv.dim")
     AVal a[4];
-    pa_match4(argc, argv, a);
+    _pico_atmos_match4(argc, argv, a);
     Pico_Layer *L_to, *L_fr;
     Pico_Rel_Dim to = {0}, fr;
-    PA_TRY(pa_lay_opt(a[0],&L_to,NULL) && pa_lay_opt(a[2],&L_fr,NULL));
-    PA_TRY(pa_dim(a[3], &fr));
-    char m = pa_mode_s(a[1]);
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(a[0],&L_to,NULL) && _pico_atmos_lay_opt(a[2],&L_fr,NULL));
+    _PICO_ATMOS_TRY(_pico_atmos_dim(a[3], &fr));
+    char m = _pico_atmos_mode_s(a[1]);
     if (m != '\0') {
         to.mode = m;
     } else {
-        PA_TRY(pa_tab(a[1],"dim") && pa_mode_t(a[1],1,&to.mode));
+        _PICO_ATMOS_TRY(_pico_atmos_tab(a[1],"dim") && _pico_atmos_mode_t(a[1],1,&to.mode));
     }
     pico_cv_dim(L_to, &to, L_fr, &fr);
     if (m != '\0') {
         AVal t = a_tab();
-        pa_set0(t, to.mode);
-        pa_set(t, "w", a_num(to.w));
-        pa_set(t, "h", a_num(to.h));
+        _pico_atmos_set0(t, to.mode);
+        _pico_atmos_set(t, "w", a_num(to.w));
+        _pico_atmos_set(t, "h", a_num(to.h));
         a_push(t);
     } else {
-        pa_set(a[1], "w", a_num(to.w));
-        pa_set(a[1], "h", a_num(to.h));
+        _pico_atmos_set(a[1], "w", a_num(to.w));
+        _pico_atmos_set(a[1], "h", a_num(to.h));
         a_pushc(a[1]);
     }
     return A_OK;
 }
 
 // pico.cv.pos([L_to,] to|mode, [L_fr,] fr)
-static AStatus l_cv_pos (AFunc* self, int argc, AVal* argv) {
-    PA_IN("cv.pos")
+static AStatus _pico_atmos_l_cv_pos (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("cv.pos")
     AVal a[4];
-    pa_match4(argc, argv, a);
+    _pico_atmos_match4(argc, argv, a);
     Pico_Layer *L_to, *L_fr;
     Pico_Rel_Pos to = { .anchor=PICO_ANCHOR_C }, fr;
-    PA_TRY(pa_lay_opt(a[0],&L_to,NULL) && pa_lay_opt(a[2],&L_fr,NULL));
-    PA_TRY(pa_pos(a[3], &fr));
-    char m = pa_mode_s(a[1]);
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(a[0],&L_to,NULL) && _pico_atmos_lay_opt(a[2],&L_fr,NULL));
+    _PICO_ATMOS_TRY(_pico_atmos_pos(a[3], &fr));
+    char m = _pico_atmos_mode_s(a[1]);
     if (m != '\0') {
         to.mode = m;
     } else {
-        PA_TRY(pa_tab(a[1],"pos") && pa_mode_t(a[1],1,&to.mode)
-            && pa_anchor(a[1],&to.anchor));
+        _PICO_ATMOS_TRY(_pico_atmos_tab(a[1],"pos") && _pico_atmos_mode_t(a[1],1,&to.mode)
+            && _pico_atmos_anchor(a[1],&to.anchor));
     }
     pico_cv_pos(L_to, &to, L_fr, &fr);
     if (m != '\0') {
-        a_push(pa_mk_pos(to));
+        a_push(_pico_atmos_mk_pos(to));
     } else {
-        pa_set(a[1], "x", a_num(to.x));
-        pa_set(a[1], "y", a_num(to.y));
+        _pico_atmos_set(a[1], "x", a_num(to.x));
+        _pico_atmos_set(a[1], "y", a_num(to.y));
         a_pushc(a[1]);
     }
     return A_OK;
 }
 
 // pico.cv.rect([L_to,] to|mode, [L_fr,] fr)
-static AStatus l_cv_rect (AFunc* self, int argc, AVal* argv) {
-    PA_IN("cv.rect")
+static AStatus _pico_atmos_l_cv_rect (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("cv.rect")
     AVal a[4];
-    pa_match4(argc, argv, a);
+    _pico_atmos_match4(argc, argv, a);
     Pico_Layer *L_to, *L_fr;
     Pico_Rel_Rect to = { .anchor=PICO_ANCHOR_C }, fr;
-    PA_TRY(pa_lay_opt(a[0],&L_to,NULL) && pa_lay_opt(a[2],&L_fr,NULL));
-    PA_TRY(pa_rect(a[3], &fr));
-    char m = pa_mode_s(a[1]);
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(a[0],&L_to,NULL) && _pico_atmos_lay_opt(a[2],&L_fr,NULL));
+    _PICO_ATMOS_TRY(_pico_atmos_rect(a[3], &fr));
+    char m = _pico_atmos_mode_s(a[1]);
     if (m != '\0') {
         to.mode = m;
     } else {
-        PA_TRY(pa_tab(a[1],"rect") && pa_mode_t(a[1],1,&to.mode)
-            && pa_anchor(a[1],&to.anchor));
+        _PICO_ATMOS_TRY(_pico_atmos_tab(a[1],"rect") && _pico_atmos_mode_t(a[1],1,&to.mode)
+            && _pico_atmos_anchor(a[1],&to.anchor));
     }
     pico_cv_rect(L_to, &to, L_fr, &fr);
     if (m != '\0') {
-        a_push(pa_mk_rect(to));
+        a_push(_pico_atmos_mk_rect(to));
     } else {
-        pa_set(a[1], "x", a_num(to.x));
-        pa_set(a[1], "y", a_num(to.y));
-        pa_set(a[1], "w", a_num(to.w));
-        pa_set(a[1], "h", a_num(to.h));
+        _pico_atmos_set(a[1], "x", a_num(to.x));
+        _pico_atmos_set(a[1], "y", a_num(to.y));
+        _pico_atmos_set(a[1], "w", a_num(to.w));
+        _pico_atmos_set(a[1], "h", a_num(to.h));
         a_pushc(a[1]);
     }
     return A_OK;
 }
 
 // pico.in.rect(out, in)
-static AStatus l_in_rect (AFunc* self, int argc, AVal* argv) {
-    PA_IN("in.rect")
+static AStatus _pico_atmos_l_in_rect (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("in.rect")
     Pico_Rel_Rect out, in;
-    PA_TRY(pa_rect(PA_ARG(0),&out) && pa_rect(PA_ARG(1),&in));
-    a_push(pa_mk_rect(pico_in_rect(out, in)));
+    _PICO_ATMOS_TRY(_pico_atmos_rect(_PICO_ATMOS_ARG(0),&out) && _pico_atmos_rect(_PICO_ATMOS_ARG(1),&in));
+    a_push(_pico_atmos_mk_rect(pico_in_rect(out, in)));
     return A_OK;
 }
 
 // pico.in.pos(out, in)
-static AStatus l_in_pos (AFunc* self, int argc, AVal* argv) {
-    PA_IN("in.pos")
+static AStatus _pico_atmos_l_in_pos (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("in.pos")
     Pico_Rel_Rect out;
     Pico_Rel_Pos  in;
-    PA_TRY(pa_rect(PA_ARG(0),&out) && pa_pos(PA_ARG(1),&in));
-    a_push(pa_mk_pos(pico_in_pos(out, in)));
+    _PICO_ATMOS_TRY(_pico_atmos_rect(_PICO_ATMOS_ARG(0),&out) && _pico_atmos_pos(_PICO_ATMOS_ARG(1),&in));
+    a_push(_pico_atmos_mk_pos(pico_in_pos(out, in)));
     return A_OK;
 }
 
 // pico.in.dim(out, in)
-static AStatus l_in_dim (AFunc* self, int argc, AVal* argv) {
-    PA_IN("in.dim")
+static AStatus _pico_atmos_l_in_dim (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("in.dim")
     Pico_Rel_Rect out;
     Pico_Rel_Dim  in;
-    PA_TRY(pa_rect(PA_ARG(0),&out) && pa_dim(PA_ARG(1),&in));
+    _PICO_ATMOS_TRY(_pico_atmos_rect(_PICO_ATMOS_ARG(0),&out) && _pico_atmos_dim(_PICO_ATMOS_ARG(1),&in));
     Pico_Rel_Dim ret = pico_in_dim(out, in);
     AVal t = a_tab();
-    pa_set0(t, ret.mode);
-    pa_set(t, "w", a_num(ret.w));
-    pa_set(t, "h", a_num(ret.h));
+    _pico_atmos_set0(t, ret.mode);
+    _pico_atmos_set(t, "w", a_num(ret.w));
+    _pico_atmos_set(t, "h", a_num(ret.h));
     a_push(t);
     return A_OK;
 }
 
 // pico.vs.pos.pos([L1,] p1, [L2,] p2)
-static AStatus l_vs_pos_pos (AFunc* self, int argc, AVal* argv) {
-    PA_IN("vs.pos.pos")
+static AStatus _pico_atmos_l_vs_pos_pos (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("vs.pos.pos")
     AVal a[4];
-    pa_match4(argc, argv, a);
+    _pico_atmos_match4(argc, argv, a);
     Pico_Layer *L1, *L2;
     Pico_Rel_Pos p1, p2;
-    PA_TRY(pa_lay_opt(a[0],&L1,NULL) && pa_lay_opt(a[2],&L2,NULL));
-    PA_TRY(pa_pos(a[1],&p1) && pa_pos(a[3],&p2));
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(a[0],&L1,NULL) && _pico_atmos_lay_opt(a[2],&L2,NULL));
+    _PICO_ATMOS_TRY(_pico_atmos_pos(a[1],&p1) && _pico_atmos_pos(a[3],&p2));
     a_push(a_bool(pico_vs_pos_pos(L1, &p1, L2, &p2)));
     return A_OK;
 }
 
 // pico.vs.pos.rect([L1,] p1, [L2,] [r2])
-static AStatus l_vs_pos_rect (AFunc* self, int argc, AVal* argv) {
-    PA_IN("vs.pos.rect")
+static AStatus _pico_atmos_l_vs_pos_rect (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("vs.pos.rect")
     AVal a[4];
-    pa_match4(argc, argv, a);
+    _pico_atmos_match4(argc, argv, a);
     Pico_Layer *L1, *L2;
     Pico_Rel_Pos p1;
     Pico_Rel_Rect r2, *xr2=NULL;
-    PA_TRY(pa_lay_opt(a[0],&L1,NULL) && pa_lay_opt(a[2],&L2,NULL));
-    PA_TRY(pa_pos(a[1], &p1));
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(a[0],&L1,NULL) && _pico_atmos_lay_opt(a[2],&L2,NULL));
+    _PICO_ATMOS_TRY(_pico_atmos_pos(a[1], &p1));
     if (a[3].type != A_NIL) {
-        PA_TRY(pa_rect(a[3], &r2));
+        _PICO_ATMOS_TRY(_pico_atmos_rect(a[3], &r2));
         xr2 = &r2;
     }
     a_push(a_bool(pico_vs_pos_rect(L1, &p1, L2, xr2)));
@@ -1031,10 +1031,10 @@ static AStatus l_vs_pos_rect (AFunc* self, int argc, AVal* argv) {
 }
 
 // pico.vs.rect.pos([L1,] [r1,] [L2,] p2)
-static AStatus l_vs_rect_pos (AFunc* self, int argc, AVal* argv) {
-    PA_IN("vs.rect.pos")
+static AStatus _pico_atmos_l_vs_rect_pos (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("vs.rect.pos")
     AVal a[4];
-    pa_match4(argc, argv, a);
+    _pico_atmos_match4(argc, argv, a);
     if (a[3].type==A_NIL && a[1].type!=A_NIL) {
         a[3] = a[1];                    // (L1, p2) and (p2): no r1
         a[1] = a_nil();
@@ -1042,31 +1042,31 @@ static AStatus l_vs_rect_pos (AFunc* self, int argc, AVal* argv) {
     Pico_Layer *L1, *L2;
     Pico_Rel_Rect r1, *xr1=NULL;
     Pico_Rel_Pos p2;
-    PA_TRY(pa_lay_opt(a[0],&L1,NULL) && pa_lay_opt(a[2],&L2,NULL));
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(a[0],&L1,NULL) && _pico_atmos_lay_opt(a[2],&L2,NULL));
     if (a[1].type != A_NIL) {
-        PA_TRY(pa_rect(a[1], &r1));
+        _PICO_ATMOS_TRY(_pico_atmos_rect(a[1], &r1));
         xr1 = &r1;
     }
-    PA_TRY(pa_pos(a[3], &p2));
+    _PICO_ATMOS_TRY(_pico_atmos_pos(a[3], &p2));
     a_push(a_bool(pico_vs_rect_pos(L1, xr1, L2, &p2)));
     return A_OK;
 }
 
 // pico.vs.rect.rect([L1,] [r1,] [L2,] [r2])
-static AStatus l_vs_rect_rect (AFunc* self, int argc, AVal* argv) {
-    PA_IN("vs.rect.rect")
+static AStatus _pico_atmos_l_vs_rect_rect (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("vs.rect.rect")
     AVal a[4];
-    pa_match4(argc, argv, a);
+    _pico_atmos_match4(argc, argv, a);
     Pico_Layer *L1, *L2;
     Pico_Rel_Rect r1, *xr1=NULL;
     Pico_Rel_Rect r2, *xr2=NULL;
-    PA_TRY(pa_lay_opt(a[0],&L1,NULL) && pa_lay_opt(a[2],&L2,NULL));
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(a[0],&L1,NULL) && _pico_atmos_lay_opt(a[2],&L2,NULL));
     if (a[1].type != A_NIL) {
-        PA_TRY(pa_rect(a[1], &r1));
+        _PICO_ATMOS_TRY(_pico_atmos_rect(a[1], &r1));
         xr1 = &r1;
     }
     if (a[3].type != A_NIL) {
-        PA_TRY(pa_rect(a[3], &r2));
+        _PICO_ATMOS_TRY(_pico_atmos_rect(a[3], &r2));
         xr2 = &r2;
     }
     a_push(a_bool(pico_vs_rect_rect(L1, xr1, L2, xr2)));
@@ -1077,44 +1077,44 @@ static AStatus l_vs_rect_rect (AFunc* self, int argc, AVal* argv) {
 // COLOR
 ///////////////////////////////////////////////////////////////////////////////
 
-static AStatus pa_color_pct (int argc, AVal* argv, Pico_Color (*f)(Pico_Color,float)) {
+static AStatus _pico_atmos_color_pct (int argc, AVal* argv, Pico_Color (*f)(Pico_Color,float)) {
     Pico_Color clr;
-    PA_TRY(pa_color(PA_ARG(0), &clr));
-    if (!a_isnum(PA_ARG(1))) {
-        return pa_bad(1, "number", PA_ARG(1));
+    _PICO_ATMOS_TRY(_pico_atmos_color(_PICO_ATMOS_ARG(0), &clr));
+    if (!a_isnum(_PICO_ATMOS_ARG(1))) {
+        return _pico_atmos_bad(1, "number", _PICO_ATMOS_ARG(1));
     }
-    a_push(pa_mk_color(f(clr, a_dbl(PA_ARG(1)))));
+    a_push(_pico_atmos_mk_color(f(clr, a_dbl(_PICO_ATMOS_ARG(1)))));
     return A_OK;
 }
 
 // pico.color.darker(clr, pct)
-static AStatus l_color_darker (AFunc* self, int argc, AVal* argv) {
-    PA_IN0("color.darker")
-    return pa_color_pct(argc, argv, pico_color_darker);
+static AStatus _pico_atmos_l_color_darker (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN0("color.darker")
+    return _pico_atmos_color_pct(argc, argv, pico_color_darker);
 }
 
 // pico.color.lighter(clr, pct)
-static AStatus l_color_lighter (AFunc* self, int argc, AVal* argv) {
-    PA_IN0("color.lighter")
-    return pa_color_pct(argc, argv, pico_color_lighter);
+static AStatus _pico_atmos_l_color_lighter (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN0("color.lighter")
+    return _pico_atmos_color_pct(argc, argv, pico_color_lighter);
 }
 
 // pico.color.mix(c1, c2)
-static AStatus l_color_mix (AFunc* self, int argc, AVal* argv) {
-    PA_IN0("color.mix")
+static AStatus _pico_atmos_l_color_mix (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN0("color.mix")
     Pico_Color c1, c2;
-    PA_TRY(pa_color(PA_ARG(0),&c1) && pa_color(PA_ARG(1),&c2));
-    a_push(pa_mk_color(pico_color_mix(c1, c2)));
+    _PICO_ATMOS_TRY(_pico_atmos_color(_PICO_ATMOS_ARG(0),&c1) && _pico_atmos_color(_PICO_ATMOS_ARG(1),&c2));
+    a_push(_pico_atmos_mk_color(pico_color_mix(c1, c2)));
     return A_OK;
 }
 
 // pico.color.alpha(clr, a)
-static AStatus l_color_alpha (AFunc* self, int argc, AVal* argv) {
-    PA_IN0("color.alpha")
+static AStatus _pico_atmos_l_color_alpha (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN0("color.alpha")
     Pico_Color clr;
     int a;
-    PA_TRY(pa_color(PA_ARG(0),&clr) && pa_int(PA_ARG(1),1,&a));
-    a_push(pa_mk_color(pico_color_alpha(clr, a)));
+    _PICO_ATMOS_TRY(_pico_atmos_color(_PICO_ATMOS_ARG(0),&clr) && _pico_atmos_int(_PICO_ATMOS_ARG(1),1,&a));
+    a_push(_pico_atmos_mk_color(pico_color_alpha(clr, a)));
     return A_OK;
 }
 
@@ -1123,32 +1123,32 @@ static AStatus l_color_alpha (AFunc* self, int argc, AVal* argv) {
 ///////////////////////////////////////////////////////////////////////////////
 
 // pico.get.aids()
-static AStatus l_get_aids (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.aids")
+static AStatus _pico_atmos_l_get_aids (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.aids")
     a_push(a_bool(pico_get_aids()));
     return A_OK;
 }
 
 // pico.get.effect()
-static AStatus l_get_effect (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.effect")
+static AStatus _pico_atmos_l_get_effect (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.effect")
     Pico_Layer_Effect e = pico_get_effect();
     AVal t = a_tab();
-    pa_set(t, "alpha", a_int(e.alpha));
-    pa_set(t, "color", pa_mk_color(e.color));
-    pa_set(t, "flip",  a_strz(PA_FLIPS[e.flip & 3]));
-    pa_set(t, "grid",  a_bool(e.grid));
+    _pico_atmos_set(t, "alpha", a_int(e.alpha));
+    _pico_atmos_set(t, "color", _pico_atmos_mk_color(e.color));
+    _pico_atmos_set(t, "flip",  a_strz(_PICO_ATMOS_FLIPS[e.flip & 3]));
+    _pico_atmos_set(t, "grid",  a_bool(e.grid));
     AVal rot = a_tab();
-    pa_set(rot, "angle",  a_int(e.rotate.angle));
-    pa_set(rot, "anchor", pa_mk_anchor(e.rotate.anchor));
-    pa_set(t, "rotate", rot);
+    _pico_atmos_set(rot, "angle",  a_int(e.rotate.angle));
+    _pico_atmos_set(rot, "anchor", _pico_atmos_mk_anchor(e.rotate.anchor));
+    _pico_atmos_set(t, "rotate", rot);
     a_push(t);
     return A_OK;
 }
 
 // pico.get.expert(): on, fps
-static AStatus l_get_expert (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.expert")
+static AStatus _pico_atmos_l_get_expert (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.expert")
     int fps;
     int on = pico_get_expert(&fps);
     a_push(a_bool(on));
@@ -1158,7 +1158,7 @@ static AStatus l_get_expert (AFunc* self, int argc, AVal* argv) {
 
 // A fresh `[mode, w=0, h=0]` (or with x=0, y=0) for a mode string or
 // nil, or the table itself (all owned).
-static int pa_dim_or_mode (AVal v, int rect, AVal* out) {
+static int _pico_atmos_dim_or_mode (AVal v, int rect, AVal* out) {
     if (v.type == A_TAB) {
         a_inc(v);
         *out = v;
@@ -1166,200 +1166,200 @@ static int pa_dim_or_mode (AVal v, int rect, AVal* out) {
     }
     char mode = '!';
     if (v.type != A_NIL) {
-        mode = pa_mode_s(v);
+        mode = _pico_atmos_mode_s(v);
         if (mode == '\0') {
             if (v.type == A_STR) {
                 a_error("%s : invalid mode '%s': expected '!', '%%', or '#'",
-                    PA_FN, A_STR_OF(v)->s);
+                    _PICO_ATMOS_FN, A_STR_OF(v)->s);
             } else {
-                pa_bad(0, "table", v);
+                _pico_atmos_bad(0, "table", v);
             }
             return 0;
         }
     }
     AVal t = a_tab();
-    pa_set0(t, mode);
+    _pico_atmos_set0(t, mode);
     if (rect) {
-        pa_set(t, "x", a_int(0));
-        pa_set(t, "y", a_int(0));
+        _pico_atmos_set(t, "x", a_int(0));
+        _pico_atmos_set(t, "y", a_int(0));
     }
-    pa_set(t, "w", a_int(0));
-    pa_set(t, "h", a_int(0));
+    _pico_atmos_set(t, "w", a_int(0));
+    _pico_atmos_set(t, "h", a_int(0));
     *out = t;
     return 1;
 }
 
 // pico.get.image([dim|mode,] path)
-static AStatus l_get_image (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.image")
+static AStatus _pico_atmos_l_get_image (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.image")
     AVal a0 = (argc <= 1) ? a_nil() : argv[0];
-    AVal a1 = (argc <= 1) ? PA_ARG(0) : argv[1];
+    AVal a1 = (argc <= 1) ? _PICO_ATMOS_ARG(0) : argv[1];
     const char* path;
-    PA_TRY(pa_str(a1,1,&path) && pa_file(path));
+    _PICO_ATMOS_TRY(_pico_atmos_str(a1,1,&path) && _pico_atmos_file(path));
     AVal t;
-    PA_TRY(pa_dim_or_mode(a0, 0, &t));
+    _PICO_ATMOS_TRY(_pico_atmos_dim_or_mode(a0, 0, &t));
     Pico_Rel_Dim dim;
-    if (!pa_dim(t, &dim)) {
+    if (!_pico_atmos_dim(t, &dim)) {
         a_dec(t);
         return A_ERROR;
     }
     pico_get_image(&dim, path);
-    pa_set(t, "w", a_num(dim.w));
-    pa_set(t, "h", a_num(dim.h));
+    _pico_atmos_set(t, "w", a_num(dim.w));
+    _pico_atmos_set(t, "h", a_num(dim.h));
     a_push(t);
     return A_OK;
 }
 
 // pico.get.keyboard()
-static AStatus l_get_keyboard (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.keyboard")
+static AStatus _pico_atmos_l_get_keyboard (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.keyboard")
     AVal t = a_tab();
-    pa_fill_keyboard(t, pico_get_keyboard());
+    _pico_atmos_fill_keyboard(t, pico_get_keyboard());
     a_push(t);
     return A_OK;
 }
 
 // The box of the current layer (owned), or nil if it is gone.
-static AVal pa_cur_box (void) {
-    if (pa_is_lay(PA.cur_box) && a_nat_ptr(PA.cur_box)!=NULL) {
-        a_inc(PA.cur_box);
-        return PA.cur_box;
+static AVal _pico_atmos_cur_box (void) {
+    if (_pico_atmos_is_lay(_PICO_ATMOS.cur_box) && a_nat_ptr(_PICO_ATMOS.cur_box)!=NULL) {
+        a_inc(_PICO_ATMOS.cur_box);
+        return _PICO_ATMOS.cur_box;
     }
     return a_nil();
 }
 
 // pico.get.layer()
-static AStatus l_get_layer (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.layer")
-    a_push(pa_cur_box());
+static AStatus _pico_atmos_l_get_layer (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.layer")
+    a_push(_pico_atmos_cur_box());
     return A_OK;
 }
 
 // pico.get.mouse([layer,] mode|pos)
-static AStatus l_get_mouse (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.mouse")
+static AStatus _pico_atmos_l_get_mouse (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.mouse")
     AVal a[4];
-    pa_match4(argc, argv, a);
+    _pico_atmos_match4(argc, argv, a);
     Pico_Layer* lay;
-    PA_TRY(pa_lay_opt(a[0], &lay, NULL));
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(a[0], &lay, NULL));
     Pico_Rel_Pos pos = { .anchor=PICO_ANCHOR_C };
-    char m = pa_mode_s(a[1]);
+    char m = _pico_atmos_mode_s(a[1]);
     if (m != '\0') {
         pos.mode = m;
     } else {
-        PA_TRY(pa_tab(a[1],"pos") && pa_mode_t(a[1],1,&pos.mode)
-            && pa_anchor(a[1],&pos.anchor));
+        _PICO_ATMOS_TRY(_pico_atmos_tab(a[1],"pos") && _pico_atmos_mode_t(a[1],1,&pos.mode)
+            && _pico_atmos_anchor(a[1],&pos.anchor));
     }
     AVal t = a_tab();
-    pa_fill_mouse(t, pa_mouse(lay, &pos));
+    _pico_atmos_fill_mouse(t, _pico_atmos_mouse(lay, &pos));
     a_push(t);
     return A_OK;
 }
 
 // pico.get.now()
-static AStatus l_get_now (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.now")
+static AStatus _pico_atmos_l_get_now (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.now")
     a_push(a_int(pico_get_now()));
     return A_OK;
 }
 
 // pico.get.pencil()
-static AStatus l_get_pencil (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.pencil")
+static AStatus _pico_atmos_l_get_pencil (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.pencil")
     AVal t = a_tab();
-    pa_set(t, "color", pa_mk_color(pico_get_pencil_color()));
-    AVal font = PA.cur->font;       // nil if it is a font that is gone
+    _pico_atmos_set(t, "color", _pico_atmos_mk_color(pico_get_pencil_color()));
+    AVal font = _PICO_ATMOS.cur->font;       // nil if it is a font that is gone
     if (font.type!=A_NAT || a_nat_ptr(font)!=NULL) {
         a_inc(font);
-        pa_set(t, "font", font);
+        _pico_atmos_set(t, "font", font);
     }
-    pa_set(t, "style", a_strz(PA_STYLES[pico_get_pencil_style() & 1]));
+    _pico_atmos_set(t, "style", a_strz(_PICO_ATMOS_STYLES[pico_get_pencil_style() & 1]));
     a_push(t);
     return A_OK;
 }
 
 // pico.get.scene()
-static AStatus l_get_scene (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.scene")
+static AStatus _pico_atmos_l_get_scene (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.scene")
     Pico_Layer_Scene s;
     pico_get_scene(&s);
     AVal t = a_tab();
-    pa_set(t, "dim",    pa_mk_dim('!', s.dim.w,  s.dim.h));
-    pa_set(t, "tile",   pa_mk_dim('!', s.tile.w, s.tile.h));
-    pa_set(t, "target", pa_mk_rect(s.dst));
-    pa_set(t, "source", pa_mk_rect(s.src));
-    pa_set(t, "clip",   pa_mk_rect(s.clip));
-    pa_set(t, "clear",  a_bool(s.clear));
+    _pico_atmos_set(t, "dim",    _pico_atmos_mk_dim('!', s.dim.w,  s.dim.h));
+    _pico_atmos_set(t, "tile",   _pico_atmos_mk_dim('!', s.tile.w, s.tile.h));
+    _pico_atmos_set(t, "target", _pico_atmos_mk_rect(s.dst));
+    _pico_atmos_set(t, "source", _pico_atmos_mk_rect(s.src));
+    _pico_atmos_set(t, "clip",   _pico_atmos_mk_rect(s.clip));
+    _pico_atmos_set(t, "clear",  a_bool(s.clear));
     a_push(t);
     return A_OK;
 }
 
 // pico.get.text(dim, text)
-static AStatus l_get_text (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.text")
+static AStatus _pico_atmos_l_get_text (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.text")
     Pico_Rel_Dim dim;
     AVal text;
-    PA_TRY(pa_dim(PA_ARG(0), &dim));
+    _PICO_ATMOS_TRY(_pico_atmos_dim(_PICO_ATMOS_ARG(0), &dim));
     if (dim.h == 0) {
-        return a_error("%s : expected numeric field 'h'", PA_FN);
+        return a_error("%s : expected numeric field 'h'", _PICO_ATMOS_FN);
     }
-    PA_TRY(pa_text(PA_ARG(1), 1, &text));
+    _PICO_ATMOS_TRY(_pico_atmos_text(_PICO_ATMOS_ARG(1), 1, &text));
     pico_get_text(&dim, A_STR_OF(text)->s);
     a_dec(text);
-    pa_set(argv[0], "w", a_num(dim.w));
-    pa_set(argv[0], "h", a_num(dim.h));
+    _pico_atmos_set(argv[0], "w", a_num(dim.w));
+    _pico_atmos_set(argv[0], "h", a_num(dim.h));
     a_pushc(argv[0]);
     return A_OK;
 }
 
 // pico.get.video([rect|mode,] layer|path)
-static AStatus l_get_video (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.video")
+static AStatus _pico_atmos_l_get_video (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.video")
     AVal a0 = (argc <= 1) ? a_nil() : argv[0];
-    AVal a1 = (argc <= 1) ? PA_ARG(0) : argv[1];
-    if (pa_is_lay(a0)) {                // (layer, rect|mode) is also fine
+    AVal a1 = (argc <= 1) ? _PICO_ATMOS_ARG(0) : argv[1];
+    if (_pico_atmos_is_lay(a0)) {                // (layer, rect|mode) is also fine
         AVal x = a0;
         a0 = a1;
         a1 = x;
     }
     const char* path = NULL;
-    PA_Lay* s = NULL;
-    if (pa_is_lay(a1)) {
-        PA_TRY(pa_lay(a1, &s));
-        if (s->kind != PA_VIDEO) {
-            return a_error("%s : not a video layer", PA_FN);
+    _PICO_ATMOS_Lay* s = NULL;
+    if (_pico_atmos_is_lay(a1)) {
+        _PICO_ATMOS_TRY(_pico_atmos_lay(a1, &s));
+        if (s->kind != _PICO_ATMOS_VIDEO) {
+            return a_error("%s : not a video layer", _PICO_ATMOS_FN);
         }
     } else {
-        PA_TRY(pa_str(a1,1,&path) && pa_file(path));
+        _PICO_ATMOS_TRY(_pico_atmos_str(a1,1,&path) && _pico_atmos_file(path));
     }
     AVal t;
-    PA_TRY(pa_dim_or_mode(a0, 1, &t));
+    _PICO_ATMOS_TRY(_pico_atmos_dim_or_mode(a0, 1, &t));
     Pico_Rel_Rect rect;
-    if (!pa_rect(t, &rect)) {
+    if (!_pico_atmos_rect(t, &rect)) {
         a_dec(t);
         return A_ERROR;
     }
     Pico_Video vid = (s != NULL) ? pico_get_video(&rect, s->lay)
                                  : pico_get_video_path(&rect, path);
-    pa_set(t, "w", a_num(rect.w));
-    pa_set(t, "h", a_num(rect.h));
+    _pico_atmos_set(t, "w", a_num(rect.w));
+    _pico_atmos_set(t, "h", a_num(rect.h));
     AVal ret = a_tab();
-    pa_set(ret, "dim",   t);
-    pa_set(ret, "fps",   a_int(vid.fps));
-    pa_set(ret, "frame", a_int(vid.frame));
-    pa_set(ret, "done",  a_bool(vid.done));
+    _pico_atmos_set(ret, "dim",   t);
+    _pico_atmos_set(ret, "fps",   a_int(vid.fps));
+    _pico_atmos_set(ret, "frame", a_int(vid.frame));
+    _pico_atmos_set(ret, "done",  a_bool(vid.done));
     a_push(ret);
     return A_OK;
 }
 
 // pico.get.window()
-static AStatus l_get_window (AFunc* self, int argc, AVal* argv) {
-    PA_IN("get.window")
+static AStatus _pico_atmos_l_get_window (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("get.window")
     Pico_Window win = pico_get_window();
     AVal t = a_tab();
-    pa_set(t, "fullscreen", a_bool(win.fs));
-    pa_set(t, "show",       a_bool(win.show));
-    pa_set(t, "title",      a_strn(win.title));
+    _pico_atmos_set(t, "fullscreen", a_bool(win.fs));
+    _pico_atmos_set(t, "show",       a_bool(win.show));
+    _pico_atmos_set(t, "title",      a_strn(win.title));
     a_push(t);
     return A_OK;
 }
@@ -1369,48 +1369,48 @@ static AStatus l_get_window (AFunc* self, int argc, AVal* argv) {
 ///////////////////////////////////////////////////////////////////////////////
 
 // pico.set.aids(on)
-static AStatus l_set_aids (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.aids")
-    if (PA_ARG(0).type != A_BOOL) {
-        return pa_bad(0, "boolean", PA_ARG(0));
+static AStatus _pico_atmos_l_set_aids (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.aids")
+    if (_PICO_ATMOS_ARG(0).type != A_BOOL) {
+        return _pico_atmos_bad(0, "boolean", _PICO_ATMOS_ARG(0));
     }
     pico_set_aids(a_truthy(argv[0]));
     return A_OK;
 }
 
 // A layer whose texture may be replaced: sub-layers borrow it.
-static int pa_resize (PA_Lay* s) {
+static int _pico_atmos_resize (_PICO_ATMOS_Lay* s) {
     if (s->subs > 0) {
-        a_error("%s : cannot resize a layer with live sub-layers", PA_FN);
+        a_error("%s : cannot resize a layer with live sub-layers", _PICO_ATMOS_FN);
         return 0;
     }
     return 1;
 }
 
 // pico.set.dim(dim)
-static AStatus l_set_dim (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.dim")
+static AStatus _pico_atmos_l_set_dim (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.dim")
     Pico_Rel_Dim dim;
-    PA_TRY(pa_dim(PA_ARG(0), &dim));
+    _PICO_ATMOS_TRY(_pico_atmos_dim(_PICO_ATMOS_ARG(0), &dim));
     if (dim.mode == '%') {
-        return a_error("%s : invalid mode '%%'", PA_FN);
+        return a_error("%s : invalid mode '%%'", _PICO_ATMOS_FN);
     }
-    PA_TRY(pa_resize((PA_Lay*)a_nat_ptr(PA.world))
-        && pa_resize((PA_Lay*)a_nat_ptr(PA.window)));
+    _PICO_ATMOS_TRY(_pico_atmos_resize((_PICO_ATMOS_Lay*)a_nat_ptr(_PICO_ATMOS.world))
+        && _pico_atmos_resize((_PICO_ATMOS_Lay*)a_nat_ptr(_PICO_ATMOS.window)));
     pico_set_dim(dim);
     return A_OK;
 }
 
 // pico.set.effect [alpha=, color=, flip=, grid=, rotate=[angle=,anchor=]]
-static AStatus l_set_effect (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.effect")
-    AVal t = PA_ARG(0);
-    PA_TRY(pa_tab(t, "effect"));
-    AVal alpha = pa_get(t, "alpha");
-    AVal color = pa_get(t, "color");
-    AVal flip  = pa_get(t, "flip");
-    AVal grid  = pa_get(t, "grid");
-    AVal rot   = pa_get(t, "rotate");
+static AStatus _pico_atmos_l_set_effect (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.effect")
+    AVal t = _PICO_ATMOS_ARG(0);
+    _PICO_ATMOS_TRY(_pico_atmos_tab(t, "effect"));
+    AVal alpha = _pico_atmos_get(t, "alpha");
+    AVal color = _pico_atmos_get(t, "color");
+    AVal flip  = _pico_atmos_get(t, "flip");
+    AVal grid  = _pico_atmos_get(t, "grid");
+    AVal rot   = _pico_atmos_get(t, "rotate");
 
     int xalpha, xflip;
     Pico_Color xcolor;
@@ -1418,20 +1418,20 @@ static AStatus l_set_effect (AFunc* self, int argc, AVal* argv) {
     if (alpha.type != A_NIL) {
         int64_t n;
         if (!a_toint(alpha, &n)) {
-            return a_error("%s : expected integer field 'alpha'", PA_FN);
+            return a_error("%s : expected integer field 'alpha'", _PICO_ATMOS_FN);
         }
         xalpha = (int) n;
     }
     if (color.type != A_NIL) {
-        PA_TRY(pa_color(color, &xcolor));
+        _PICO_ATMOS_TRY(_pico_atmos_color(color, &xcolor));
     }
     if (flip.type != A_NIL) {
-        PA_TRY(pa_enum(flip, "flip", PA_FLIPS, 4, &xflip));
+        _PICO_ATMOS_TRY(_pico_atmos_enum(flip, "flip", _PICO_ATMOS_FLIPS, 4, &xflip));
     }
     if (rot.type != A_NIL) {
         float angle;
-        PA_TRY(pa_tab(rot,"rotate") && pa_num(rot,"angle",1,&angle)
-            && pa_anchor(rot,&xrot.anchor));
+        _PICO_ATMOS_TRY(_pico_atmos_tab(rot,"rotate") && _pico_atmos_num(rot,"angle",1,&angle)
+            && _pico_atmos_anchor(rot,&xrot.anchor));
         xrot.angle = (int) angle;
     }
 
@@ -1444,19 +1444,19 @@ static AStatus l_set_effect (AFunc* self, int argc, AVal* argv) {
 }
 
 // pico.set.expert(on [, fps])
-static AStatus l_set_expert (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.expert")
-    if (PA_ARG(0).type != A_BOOL) {
-        return pa_bad(0, "boolean", PA_ARG(0));
+static AStatus _pico_atmos_l_set_expert (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.expert")
+    if (_PICO_ATMOS_ARG(0).type != A_BOOL) {
+        return _pico_atmos_bad(0, "boolean", _PICO_ATMOS_ARG(0));
     }
     int fps = 0;
     if (argc >= 2) {
         if (argv[1].type == A_BOOL) {
             fps = a_truthy(argv[1]) ? -1 : 0;
         } else {
-            PA_TRY(pa_int(argv[1], 1, &fps));
+            _PICO_ATMOS_TRY(_pico_atmos_int(argv[1], 1, &fps));
             if (fps < -1) {
-                return a_error("%s : invalid fps", PA_FN);
+                return a_error("%s : invalid fps", _PICO_ATMOS_FN);
             }
         }
     }
@@ -1465,58 +1465,58 @@ static AStatus l_set_expert (AFunc* self, int argc, AVal* argv) {
 }
 
 // pico.set.layer(layer): the previous one
-static AStatus l_set_layer (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.layer")
-    PA_Lay* s;
-    PA_TRY(pa_lay(PA_ARG(0), &s));
-    AVal old = pa_cur_box();
+static AStatus _pico_atmos_l_set_layer (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.layer")
+    _PICO_ATMOS_Lay* s;
+    _PICO_ATMOS_TRY(_pico_atmos_lay(_PICO_ATMOS_ARG(0), &s));
+    AVal old = _pico_atmos_cur_box();
     pico_set_layer(s->lay);
-    pa_cur(argv[0]);
+    _pico_atmos_cur(argv[0]);
     a_push(old);
     return A_OK;
 }
 
 // pico.set.mouse([layer,] pos)
-static AStatus l_set_mouse (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.mouse")
+static AStatus _pico_atmos_l_set_mouse (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.mouse")
     AVal a[4];
-    pa_match4(argc, argv, a);
+    _pico_atmos_match4(argc, argv, a);
     Pico_Layer* lay;
     Pico_Rel_Pos pos;
-    PA_TRY(pa_lay_opt(a[0],&lay,NULL) && pa_pos(a[1],&pos));
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(a[0],&lay,NULL) && _pico_atmos_pos(a[1],&pos));
     pico_set_mouse(lay, pos);
-    PA.mouse.on = 0;
+    _PICO_ATMOS.mouse.on = 0;
     return A_OK;
 }
 
 // pico.set.pencil [color=, font=, style=]
-static AStatus l_set_pencil (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.pencil")
-    AVal t = PA_ARG(0);
-    PA_TRY(pa_tab(t, "pencil"));
-    AVal color = pa_get(t, "color");
-    AVal font  = pa_get(t, "font");
-    AVal style = pa_get(t, "style");
+static AStatus _pico_atmos_l_set_pencil (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.pencil")
+    AVal t = _PICO_ATMOS_ARG(0);
+    _PICO_ATMOS_TRY(_pico_atmos_tab(t, "pencil"));
+    AVal color = _pico_atmos_get(t, "color");
+    AVal font  = _pico_atmos_get(t, "font");
+    AVal style = _pico_atmos_get(t, "style");
 
     Pico_Color xcolor;
     int xstyle;
-    PA_Res* xfont = NULL;
+    _PICO_ATMOS_Res* xfont = NULL;
     if (color.type != A_NIL) {
-        PA_TRY(pa_color(color, &xcolor));
+        _PICO_ATMOS_TRY(_pico_atmos_color(color, &xcolor));
     }
     int dfont = (font.type==A_STR && !strcmp(A_STR_OF(font)->s,"default"));
     if (dfont) {
         // :default, the built-in font
     } else if (font.type == A_STR) {
-        PA_TRY(pa_file(A_STR_OF(font)->s));
+        _PICO_ATMOS_TRY(_pico_atmos_file(A_STR_OF(font)->s));
     } else if (font.type == A_NAT) {
-        PA_TRY(pa_res(font, PA_KIND_FNT, &xfont));
+        _PICO_ATMOS_TRY(_pico_atmos_res(font, _PICO_ATMOS_KIND_FNT, &xfont));
     } else if (font.type != A_NIL) {
         return a_error("%s : invalid font : expected font, path, or :default",
-            PA_FN);
+            _PICO_ATMOS_FN);
     }
     if (style.type != A_NIL) {
-        PA_TRY(pa_enum(style, "style", PA_STYLES, 2, &xstyle));
+        _PICO_ATMOS_TRY(_pico_atmos_enum(style, "style", _PICO_ATMOS_STYLES, 2, &xstyle));
     }
 
     if (color.type != A_NIL) {
@@ -1531,9 +1531,9 @@ static AStatus l_set_pencil (AFunc* self, int argc, AVal* argv) {
         if (xfont != NULL) {
             xfont->rc++;
         }
-        pa_res_unref(PA.cur->fres);
-        PA.cur->fres = xfont;
-        a_cpy(&PA.cur->font, dfont ? a_nil() : font);
+        _pico_atmos_res_unref(_PICO_ATMOS.cur->fres);
+        _PICO_ATMOS.cur->fres = xfont;
+        a_cpy(&_PICO_ATMOS.cur->font, dfont ? a_nil() : font);
     }
     if (style.type != A_NIL) {
         pico_set_pencil_style((PICO_STYLE) xstyle);
@@ -1542,38 +1542,38 @@ static AStatus l_set_pencil (AFunc* self, int argc, AVal* argv) {
 }
 
 // pico.set.scene [clear=, dim=, tile=, clip=, target=, source=]
-static AStatus l_set_scene (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.scene")
-    AVal t = PA_ARG(0);
-    PA_TRY(pa_tab(t, "scene"));
-    AVal clear = pa_get(t, "clear");
-    AVal vdim  = pa_get(t, "dim");
-    AVal vtile = pa_get(t, "tile");
-    AVal vclip = pa_get(t, "clip");
-    AVal vdst  = pa_get(t, "target");
-    AVal vsrc  = pa_get(t, "source");
+static AStatus _pico_atmos_l_set_scene (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.scene")
+    AVal t = _PICO_ATMOS_ARG(0);
+    _PICO_ATMOS_TRY(_pico_atmos_tab(t, "scene"));
+    AVal clear = _pico_atmos_get(t, "clear");
+    AVal vdim  = _pico_atmos_get(t, "dim");
+    AVal vtile = _pico_atmos_get(t, "tile");
+    AVal vclip = _pico_atmos_get(t, "clip");
+    AVal vdst  = _pico_atmos_get(t, "target");
+    AVal vsrc  = _pico_atmos_get(t, "source");
 
     Pico_Rel_Dim  dim,  *xdim=NULL;
     Pico_Rel_Dim  tile, *xtile=NULL;
     Pico_Rel_Rect clip, dst, src;
-    if (a_truthy(clear) && (PA.cur->kind==PA_ROOT || PA.cur->kind==PA_SUB)) {
-        return a_error("%s : unexpected 'clear'", PA_FN);
+    if (a_truthy(clear) && (_PICO_ATMOS.cur->kind==_PICO_ATMOS_ROOT || _PICO_ATMOS.cur->kind==_PICO_ATMOS_SUB)) {
+        return a_error("%s : unexpected 'clear'", _PICO_ATMOS_FN);
     }
     if (vdim.type != A_NIL) {
-        PA_TRY(pa_dim(vdim, &dim));
+        _PICO_ATMOS_TRY(_pico_atmos_dim(vdim, &dim));
         if (dim.mode == '%') {
-            return a_error("%s : invalid mode '%%' in 'dim'", PA_FN);
+            return a_error("%s : invalid mode '%%' in 'dim'", _PICO_ATMOS_FN);
         }
-        PA_TRY(pa_resize(PA.cur));
+        _PICO_ATMOS_TRY(_pico_atmos_resize(_PICO_ATMOS.cur));
         xdim = &dim;
     }
     if (vtile.type != A_NIL) {
-        PA_TRY(pa_dim(vtile, &tile));
+        _PICO_ATMOS_TRY(_pico_atmos_dim(vtile, &tile));
         xtile = &tile;
     }
-    if (vclip.type != A_NIL) { PA_TRY(pa_rect(vclip, &clip)); }
-    if (vdst.type  != A_NIL) { PA_TRY(pa_rect(vdst,  &dst));  }
-    if (vsrc.type  != A_NIL) { PA_TRY(pa_rect(vsrc,  &src));  }
+    if (vclip.type != A_NIL) { _PICO_ATMOS_TRY(_pico_atmos_rect(vclip, &clip)); }
+    if (vdst.type  != A_NIL) { _PICO_ATMOS_TRY(_pico_atmos_rect(vdst,  &dst));  }
+    if (vsrc.type  != A_NIL) { _PICO_ATMOS_TRY(_pico_atmos_rect(vsrc,  &src));  }
 
     if (clear.type != A_NIL) {
         pico_set_scene_clear(a_truthy(clear));
@@ -1588,28 +1588,28 @@ static AStatus l_set_scene (AFunc* self, int argc, AVal* argv) {
 }
 
 // pico.set.video(layer, frame)
-static AStatus l_set_video (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.video")
-    PA_Lay* s;
+static AStatus _pico_atmos_l_set_video (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.video")
+    _PICO_ATMOS_Lay* s;
     int frame;
-    PA_TRY(pa_lay(PA_ARG(0),&s) && pa_int(PA_ARG(1),1,&frame));
-    if (s->kind != PA_VIDEO) {
-        return a_error("%s : not a video layer", PA_FN);
+    _PICO_ATMOS_TRY(_pico_atmos_lay(_PICO_ATMOS_ARG(0),&s) && _pico_atmos_int(_PICO_ATMOS_ARG(1),1,&frame));
+    if (s->kind != _PICO_ATMOS_VIDEO) {
+        return a_error("%s : not a video layer", _PICO_ATMOS_FN);
     }
     a_push(a_bool(pico_set_video(s->lay, frame)));
     return A_OK;
 }
 
 // pico.set.window [fullscreen=, show=, title=]
-static AStatus l_set_window (AFunc* self, int argc, AVal* argv) {
-    PA_IN("set.window")
-    AVal t = PA_ARG(0);
-    PA_TRY(pa_tab(t, "window"));
-    AVal fs    = pa_get(t, "fullscreen");
-    AVal show  = pa_get(t, "show");
-    AVal title = pa_get(t, "title");
+static AStatus _pico_atmos_l_set_window (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("set.window")
+    AVal t = _PICO_ATMOS_ARG(0);
+    _PICO_ATMOS_TRY(_pico_atmos_tab(t, "window"));
+    AVal fs    = _pico_atmos_get(t, "fullscreen");
+    AVal show  = _pico_atmos_get(t, "show");
+    AVal title = _pico_atmos_get(t, "title");
     if (title.type!=A_NIL && title.type!=A_STR) {
-        return a_error("%s : expected string field 'title'", PA_FN);
+        return a_error("%s : expected string field 'title'", _PICO_ATMOS_FN);
     }
     if (fs.type    != A_NIL) { pico_set_window_fs(a_truthy(fs));            }
     if (show.type  != A_NIL) { pico_set_window_show(a_truthy(show));        }
@@ -1622,42 +1622,42 @@ static AStatus l_set_window (AFunc* self, int argc, AVal* argv) {
 ///////////////////////////////////////////////////////////////////////////////
 
 // A layer may host children if its texture is a render target.
-static int pa_hosts (PA_Lay* s) {
-    if (s->kind == PA_SUB) {
+static int _pico_atmos_hosts (_PICO_ATMOS_Lay* s) {
+    if (s->kind == _PICO_ATMOS_SUB) {
         s = s->sup;
     }
-    return s->kind==PA_ROOT || s->kind==PA_EMPTY;
+    return s->kind==_PICO_ATMOS_ROOT || s->kind==_PICO_ATMOS_EMPTY;
 }
 
 // The common fields of the constructors: the table itself, `up`, and
 // `target`.
-typedef struct PA_Ctor {
+typedef struct _PICO_ATMOS_Ctor {
     AVal          t;
-    PA_Lay*       up;
+    _PICO_ATMOS_Lay*       up;
     Pico_Layer*   xup;
     int           has_dst;
     Pico_Rel_Rect dst;
-} PA_Ctor;
+} _PICO_ATMOS_Ctor;
 
-static int pa_ctor (int argc, AVal* argv, PA_Ctor* c) {
-    c->t = PA_ARG(0);
-    if (!pa_tab(c->t, "layer")) {
+static int _pico_atmos_ctor (int argc, AVal* argv, _PICO_ATMOS_Ctor* c) {
+    c->t = _PICO_ATMOS_ARG(0);
+    if (!_pico_atmos_tab(c->t, "layer")) {
         return 0;
     }
-    if (!pa_lay_opt(pa_get(c->t,"up"), &c->xup, &c->up)) {
+    if (!_pico_atmos_lay_opt(_pico_atmos_get(c->t,"up"), &c->xup, &c->up)) {
         return 0;
     }
-    if (c->up!=NULL && !pa_hosts(c->up)) {
-        a_error("%s : invalid 'up' : layer cannot host children", PA_FN);
+    if (c->up!=NULL && !_pico_atmos_hosts(c->up)) {
+        a_error("%s : invalid 'up' : layer cannot host children", _PICO_ATMOS_FN);
         return 0;
     }
-    AVal dst = pa_get(c->t, "target");
+    AVal dst = _pico_atmos_get(c->t, "target");
     c->has_dst = (dst.type != A_NIL);
-    return !c->has_dst || pa_rect(dst, &c->dst);
+    return !c->has_dst || _pico_atmos_rect(dst, &c->dst);
 }
 
 // Applies the `target` to a new layer.
-static void pa_ctor_dst (PA_Ctor* c, Pico_Layer* lay) {
+static void _pico_atmos_ctor_dst (_PICO_ATMOS_Ctor* c, Pico_Layer* lay) {
     if (c->has_dst) {
         Pico_Layer* old = pico_set_layer(lay);
         pico_set_scene_dst(c->dst);
@@ -1666,87 +1666,87 @@ static void pa_ctor_dst (PA_Ctor* c, Pico_Layer* lay) {
 }
 
 // Applies the `target`, and pushes the box of the new layer.
-static AStatus pa_ctor_end (PA_Ctor* c, Pico_Layer* lay, int kind, PA_Lay* sup) {
-    pa_ctor_dst(c, lay);
-    a_push(pa_lay_new(lay, kind, c->up, sup));
+static AStatus _pico_atmos_ctor_end (_PICO_ATMOS_Ctor* c, Pico_Layer* lay, int kind, _PICO_ATMOS_Lay* sup) {
+    _pico_atmos_ctor_dst(c, lay);
+    a_push(_pico_atmos_lay_new(lay, kind, c->up, sup));
     return A_OK;
 }
 
 // A field with a path of a file.
-static int pa_path (AVal t, const char** path) {
-    AVal v = pa_get(t, "path");
+static int _pico_atmos_path (AVal t, const char** path) {
+    AVal v = _pico_atmos_get(t, "path");
     if (v.type != A_STR) {
-        a_error("%s : required 'path'", PA_FN);
+        a_error("%s : required 'path'", _PICO_ATMOS_FN);
         return 0;
     }
     *path = A_STR_OF(v)->s;
-    return pa_file(*path);
+    return _pico_atmos_file(*path);
 }
 
 // pico.layer.world()
-static AStatus l_layer_world (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.world")
-    a_pushc(PA.world);
+static AStatus _pico_atmos_l_layer_world (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.world")
+    a_pushc(_PICO_ATMOS.world);
     return A_OK;
 }
 
 // pico.layer.window()
-static AStatus l_layer_window (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.window")
-    a_pushc(PA.window);
+static AStatus _pico_atmos_l_layer_window (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.window")
+    a_pushc(_PICO_ATMOS.window);
     return A_OK;
 }
 
 // pico.layer.empty [up=, clear=, dim=, tile=, target=]
-static AStatus l_layer_empty (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.empty")
-    PA_Ctor c;
-    PA_TRY(pa_ctor(argc, argv, &c));
-    int clear = a_truthy(pa_get(c.t, "clear"));
+static AStatus _pico_atmos_l_layer_empty (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.empty")
+    _PICO_ATMOS_Ctor c;
+    _PICO_ATMOS_TRY(_pico_atmos_ctor(argc, argv, &c));
+    int clear = a_truthy(_pico_atmos_get(c.t, "clear"));
     if (clear && c.up==NULL) {
-        return a_error("%s : unexpected 'clear'", PA_FN);
+        return a_error("%s : unexpected 'clear'", _PICO_ATMOS_FN);
     }
-    AVal vdim = pa_get(c.t, "dim");
+    AVal vdim = _pico_atmos_get(c.t, "dim");
     if (vdim.type == A_NIL) {
-        vdim = pa_get(c.t, "target");
+        vdim = _pico_atmos_get(c.t, "target");
         if (vdim.type == A_NIL) {
-            return a_error("%s : 'dim' required", PA_FN);
+            return a_error("%s : 'dim' required", _PICO_ATMOS_FN);
         }
     }
     Pico_Rel_Dim dim, tile, *xtile=NULL;
-    PA_TRY(pa_dim(vdim, &dim));
-    AVal vtile = pa_get(c.t, "tile");
+    _PICO_ATMOS_TRY(_pico_atmos_dim(vdim, &dim));
+    AVal vtile = _pico_atmos_get(c.t, "tile");
     if (vtile.type != A_NIL) {
-        PA_TRY(pa_dim(vtile, &tile));
+        _PICO_ATMOS_TRY(_pico_atmos_dim(vtile, &tile));
         xtile = &tile;
     }
-    return pa_ctor_end(&c, pico_layer_empty(c.xup,clear,dim,xtile), PA_EMPTY, NULL);
+    return _pico_atmos_ctor_end(&c, pico_layer_empty(c.xup,clear,dim,xtile), _PICO_ATMOS_EMPTY, NULL);
 }
 
 // pico.layer.image [up=, path=, target=]
-static AStatus l_layer_image (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.image")
-    PA_Ctor c;
+static AStatus _pico_atmos_l_layer_image (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.image")
+    _PICO_ATMOS_Ctor c;
     const char* path;
-    PA_TRY(pa_ctor(argc,argv,&c) && pa_path(c.t,&path));
-    return pa_ctor_end(&c, pico_layer_image(c.xup,path), PA_IMAGE, NULL);
+    _PICO_ATMOS_TRY(_pico_atmos_ctor(argc,argv,&c) && _pico_atmos_path(c.t,&path));
+    return _pico_atmos_ctor_end(&c, pico_layer_image(c.xup,path), _PICO_ATMOS_IMAGE, NULL);
 }
 
 // pico.layer.images [up=, path=, sheet=, target=]
 //  - sheet=['#', w=cols, h=rows, n=count]: a vector, from left to right
 //  - sheet=['!', name=Rect, ...]: a table with the same names
 //  - target: the placement of each of the sub-layers, as in `pico.layer.sub`
-static AStatus l_layer_images (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.images")
-    PA_Ctor c;
+static AStatus _pico_atmos_l_layer_images (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.images")
+    _PICO_ATMOS_Ctor c;
     const char* path;
-    PA_TRY(pa_ctor(argc,argv,&c) && pa_path(c.t,&path));
-    AVal sheet = pa_get(c.t, "sheet");
-    PA_TRY(pa_tab(sheet, "sheet"));
+    _PICO_ATMOS_TRY(_pico_atmos_ctor(argc,argv,&c) && _pico_atmos_path(c.t,&path));
+    AVal sheet = _pico_atmos_get(c.t, "sheet");
+    _PICO_ATMOS_TRY(_pico_atmos_tab(sheet, "sheet"));
     AVal mode = a_tab_get(A_TAB_OF(sheet), a_int(0));
-    char m = pa_mode_s(mode);
+    char m = _pico_atmos_mode_s(mode);
     if (m!='#' && m!='!') {
-        return a_error("%s : expected '#' or '!' mode", PA_FN);
+        return a_error("%s : expected '#' or '!' mode", _PICO_ATMOS_FN);
     }
 
     // crops, all checked before any layer is created
@@ -1755,10 +1755,10 @@ static AStatus l_layer_images (AFunc* self, int argc, AVal* argv) {
     AVal* names = NULL;
     if (m == '#') {
         float cols, rows, max;
-        PA_TRY(pa_num(sheet,"w",0,&cols) && pa_num(sheet,"h",0,&rows)
-            && pa_num(sheet,"n",0,&max));
+        _PICO_ATMOS_TRY(_pico_atmos_num(sheet,"w",0,&cols) && _pico_atmos_num(sheet,"h",0,&rows)
+            && _pico_atmos_num(sheet,"n",0,&max));
         if (cols<1 || rows<1) {
-            return a_error("%s : mode '#' requires 'w' and 'h'", PA_FN);
+            return a_error("%s : mode '#' requires 'w' and 'h'", _PICO_ATMOS_FN);
         }
         Pico_Abs_Dim dim = pico_get_image(NULL, path);
         float tw = dim.w / (float)(int)cols;
@@ -1784,7 +1784,7 @@ static AStatus l_layer_images (AFunc* self, int argc, AVal* argv) {
             if (a_eq(k, a_int(0))) {
                 continue;
             }
-            if (!pa_rect(v, &crops[n])) {
+            if (!_pico_atmos_rect(v, &crops[n])) {
                 free(crops);
                 free(names);
                 return A_ERROR;
@@ -1794,12 +1794,12 @@ static AStatus l_layer_images (AFunc* self, int argc, AVal* argv) {
     }
 
     AVal ret = a_tab();
-    AVal img = pa_lay_new(pico_layer_image(NULL,path), PA_IMAGE, NULL, NULL);
-    PA_Lay* sup = a_nat_ptr(img);
+    AVal img = _pico_atmos_lay_new(pico_layer_image(NULL,path), _PICO_ATMOS_IMAGE, NULL, NULL);
+    _PICO_ATMOS_Lay* sup = a_nat_ptr(img);
     for (int i=0; i<n; i++) {
         Pico_Layer* lay = pico_layer_sub(c.xup, sup->lay, &crops[i]);
-        pa_ctor_dst(&c, lay);
-        AVal sub = pa_lay_new(lay, PA_SUB, c.up, sup);
+        _pico_atmos_ctor_dst(&c, lay);
+        AVal sub = _pico_atmos_lay_new(lay, _PICO_ATMOS_SUB, c.up, sup);
         a_setindex(ret, (names == NULL) ? a_int(i) : names[i], sub);
         a_dec(sub);
     }
@@ -1811,103 +1811,103 @@ static AStatus l_layer_images (AFunc* self, int argc, AVal* argv) {
 }
 
 // pico.layer.pixmap [up=, pixels=|pixmap=, target=]
-static AStatus l_layer_pixmap (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.pixmap")
-    PA_Ctor c;
-    PA_TRY(pa_ctor(argc, argv, &c));
-    AVal pixels = pa_get(c.t, "pixels");
+static AStatus _pico_atmos_l_layer_pixmap (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.pixmap")
+    _PICO_ATMOS_Ctor c;
+    _PICO_ATMOS_TRY(_pico_atmos_ctor(argc, argv, &c));
+    AVal pixels = _pico_atmos_get(c.t, "pixels");
     if (pixels.type == A_NIL) {
-        pixels = pa_get(c.t, "pixmap");
+        pixels = _pico_atmos_get(c.t, "pixmap");
     }
     Pico_Abs_Dim dim;
     Pico_Color* buf;
-    PA_TRY(pa_pixmap(pixels, &dim, &buf));
+    _PICO_ATMOS_TRY(_pico_atmos_pixmap(pixels, &dim, &buf));
     Pico_Layer* lay = pico_layer_pixmap(c.xup, dim, buf);
     free(buf);
-    return pa_ctor_end(&c, lay, PA_PIXMAP, NULL);
+    return _pico_atmos_ctor_end(&c, lay, _PICO_ATMOS_PIXMAP, NULL);
 }
 
 // pico.layer.screenshot [up=, sup=|src=, crop=|rect=, target=]
-static AStatus l_layer_screenshot (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.screenshot")
-    PA_Ctor c;
-    PA_TRY(pa_ctor(argc, argv, &c));
-    AVal vsup = pa_get(c.t, "sup");
+static AStatus _pico_atmos_l_layer_screenshot (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.screenshot")
+    _PICO_ATMOS_Ctor c;
+    _PICO_ATMOS_TRY(_pico_atmos_ctor(argc, argv, &c));
+    AVal vsup = _pico_atmos_get(c.t, "sup");
     if (vsup.type == A_NIL) {
-        vsup = pa_get(c.t, "src");
+        vsup = _pico_atmos_get(c.t, "src");
     }
-    AVal vcrop = pa_get(c.t, "crop");
+    AVal vcrop = _pico_atmos_get(c.t, "crop");
     if (vcrop.type == A_NIL) {
-        vcrop = pa_get(c.t, "rect");
+        vcrop = _pico_atmos_get(c.t, "rect");
     }
     Pico_Layer* sup;
     Pico_Rel_Rect crop, *xcrop=NULL;
-    PA_TRY(pa_lay_opt(vsup, &sup, NULL));
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(vsup, &sup, NULL));
     if (vcrop.type != A_NIL) {
-        PA_TRY(pa_rect(vcrop, &crop));
+        _PICO_ATMOS_TRY(_pico_atmos_rect(vcrop, &crop));
         xcrop = &crop;
     }
-    return pa_ctor_end(&c, pico_layer_screenshot(c.xup,sup,xcrop), PA_SHOT, NULL);
+    return _pico_atmos_ctor_end(&c, pico_layer_screenshot(c.xup,sup,xcrop), _PICO_ATMOS_SHOT, NULL);
 }
 
 // pico.layer.sub [up=, sup=, crop=, target=]
-static AStatus l_layer_sub (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.sub")
-    PA_Ctor c;
-    PA_TRY(pa_ctor(argc, argv, &c));
-    AVal vsup  = pa_get(c.t, "sup");
-    AVal vcrop = pa_get(c.t, "crop");
+static AStatus _pico_atmos_l_layer_sub (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.sub")
+    _PICO_ATMOS_Ctor c;
+    _PICO_ATMOS_TRY(_pico_atmos_ctor(argc, argv, &c));
+    AVal vsup  = _pico_atmos_get(c.t, "sup");
+    AVal vcrop = _pico_atmos_get(c.t, "crop");
     if (vsup.type == A_NIL) {
-        return a_error("%s : required 'sup'", PA_FN);
+        return a_error("%s : required 'sup'", _PICO_ATMOS_FN);
     }
     if (vcrop.type == A_NIL) {
-        return a_error("%s : required 'crop'", PA_FN);
+        return a_error("%s : required 'crop'", _PICO_ATMOS_FN);
     }
-    PA_Lay* sup;
+    _PICO_ATMOS_Lay* sup;
     Pico_Rel_Rect crop;
-    PA_TRY(pa_lay(vsup,&sup) && pa_rect(vcrop,&crop));
-    if (sup->kind == PA_SUB) {
-        return a_error("%s : invalid 'sup' : sub-layer of a sub-layer", PA_FN);
+    _PICO_ATMOS_TRY(_pico_atmos_lay(vsup,&sup) && _pico_atmos_rect(vcrop,&crop));
+    if (sup->kind == _PICO_ATMOS_SUB) {
+        return a_error("%s : invalid 'sup' : sub-layer of a sub-layer", _PICO_ATMOS_FN);
     }
-    return pa_ctor_end(&c, pico_layer_sub(c.xup,sup->lay,&crop), PA_SUB, sup);
+    return _pico_atmos_ctor_end(&c, pico_layer_sub(c.xup,sup->lay,&crop), _PICO_ATMOS_SUB, sup);
 }
 
 // pico.layer.text [up=, dim=, text=, target=]
-static AStatus l_layer_text (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.text")
-    PA_Ctor c;
-    PA_TRY(pa_ctor(argc, argv, &c));
-    AVal vdim = pa_get(c.t, "dim");
+static AStatus _pico_atmos_l_layer_text (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.text")
+    _PICO_ATMOS_Ctor c;
+    _PICO_ATMOS_TRY(_pico_atmos_ctor(argc, argv, &c));
+    AVal vdim = _pico_atmos_get(c.t, "dim");
     if (vdim.type != A_TAB) {
-        return a_error("%s : required 'dim' table", PA_FN);
+        return a_error("%s : required 'dim' table", _PICO_ATMOS_FN);
     }
     Pico_Rel_Dim dim;
-    PA_TRY(pa_dim(vdim, &dim));
+    _PICO_ATMOS_TRY(_pico_atmos_dim(vdim, &dim));
     if (dim.h==0 || dim.w!=0) {
-        return a_error("%s : invalid 'dim' : expected 'h' only", PA_FN);
+        return a_error("%s : invalid 'dim' : expected 'h' only", _PICO_ATMOS_FN);
     }
-    AVal vtext = pa_get(c.t, "text");
+    AVal vtext = _pico_atmos_get(c.t, "text");
     AVal text;
     if (vtext.type!=A_STR && !a_isnum(vtext)) {
-        return a_error("%s : required 'text'", PA_FN);
+        return a_error("%s : required 'text'", _PICO_ATMOS_FN);
     }
-    PA_TRY(pa_text(vtext, 0, &text));
+    _PICO_ATMOS_TRY(_pico_atmos_text(vtext, 0, &text));
     if (A_STR_OF(text)->len == 0) {
         a_dec(text);
-        return a_error("%s : required 'text'", PA_FN);
+        return a_error("%s : required 'text'", _PICO_ATMOS_FN);
     }
     Pico_Layer* lay = pico_layer_text(c.xup, dim, A_STR_OF(text)->s);
     a_dec(text);
-    return pa_ctor_end(&c, lay, PA_TEXT, NULL);
+    return _pico_atmos_ctor_end(&c, lay, _PICO_ATMOS_TEXT, NULL);
 }
 
 // pico.layer.video [up=, path=, target=]
-static AStatus l_layer_video (AFunc* self, int argc, AVal* argv) {
-    PA_IN("layer.video")
-    PA_Ctor c;
+static AStatus _pico_atmos_l_layer_video (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("layer.video")
+    _PICO_ATMOS_Ctor c;
     const char* path;
-    PA_TRY(pa_ctor(argc,argv,&c) && pa_path(c.t,&path));
-    return pa_ctor_end(&c, pico_layer_video(c.xup,path), PA_VIDEO, NULL);
+    _PICO_ATMOS_TRY(_pico_atmos_ctor(argc,argv,&c) && _pico_atmos_path(c.t,&path));
+    return _pico_atmos_ctor_end(&c, pico_layer_video(c.xup,path), _PICO_ATMOS_VIDEO, NULL);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1915,20 +1915,20 @@ static AStatus l_layer_video (AFunc* self, int argc, AVal* argv) {
 ///////////////////////////////////////////////////////////////////////////////
 
 // pico.font.load(path)
-static AStatus l_font_load (AFunc* self, int argc, AVal* argv) {
-    PA_IN("font.load")
+static AStatus _pico_atmos_l_font_load (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("font.load")
     const char* path;
-    PA_TRY(pa_str(PA_ARG(0),0,&path) && pa_file(path));
-    a_push(pa_res_new(pico_font_load(path), 1));
+    _PICO_ATMOS_TRY(_pico_atmos_str(_PICO_ATMOS_ARG(0),0,&path) && _pico_atmos_file(path));
+    a_push(_pico_atmos_res_new(pico_font_load(path), 1));
     return A_OK;
 }
 
 // pico.sound.load(path)
-static AStatus l_sound_load (AFunc* self, int argc, AVal* argv) {
-    PA_IN("sound.load")
+static AStatus _pico_atmos_l_sound_load (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("sound.load")
     const char* path;
-    PA_TRY(pa_str(PA_ARG(0),0,&path) && pa_file(path));
-    a_push(pa_res_new(pico_sound_load(path), 0));
+    _PICO_ATMOS_TRY(_pico_atmos_str(_PICO_ATMOS_ARG(0),0,&path) && _pico_atmos_file(path));
+    a_push(_pico_atmos_res_new(pico_sound_load(path), 0));
     return A_OK;
 }
 
@@ -1937,10 +1937,10 @@ static AStatus l_sound_load (AFunc* self, int argc, AVal* argv) {
 ///////////////////////////////////////////////////////////////////////////////
 
 // pico.input.delay(ms): the time passed
-static AStatus l_input_delay (AFunc* self, int argc, AVal* argv) {
-    PA_IN("input.delay")
-    if (!a_isnum(PA_ARG(0))) {
-        return pa_bad(0, "number", PA_ARG(0));
+static AStatus _pico_atmos_l_input_delay (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("input.delay")
+    if (!a_isnum(_PICO_ATMOS_ARG(0))) {
+        return _pico_atmos_bad(0, "number", _PICO_ATMOS_ARG(0));
     }
     a_push(a_int(pico_input_delay((int) a_dbl(argv[0]))));
     return A_OK;
@@ -1949,13 +1949,13 @@ static AStatus l_input_delay (AFunc* self, int argc, AVal* argv) {
 // pico.input.event(): the event (or nil), the time passed
 // pico.input.event(ms)
 // pico.input.event(filter [, ms])
-//  - filter: a string of PA_EVENTS, or nil for any event
+//  - filter: a string of _PICO_ATMOS_EVENTS, or nil for any event
 //  - ms: an integer >= 0, or nil (or -1) to wait with no timeout
 //  - further arguments are ignored
-static AStatus l_input_event (AFunc* self, int argc, AVal* argv) {
-    PA_IN("input.event")
-    AVal a0 = PA_ARG(0);
-    AVal a1 = PA_ARG(1);
+static AStatus _pico_atmos_l_input_event (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("input.event")
+    AVal a0 = _PICO_ATMOS_ARG(0);
+    AVal a1 = _PICO_ATMOS_ARG(1);
     AVal vms = a1;
     int ims = 1;
     int64_t n;
@@ -1964,41 +1964,41 @@ static AStatus l_input_event (AFunc* self, int argc, AVal* argv) {
         vms = a0;
         ims = 0;
         if (!a_toint(a0, &n)) {
-            return pa_bad(0, "string or integer", a0);
+            return _pico_atmos_bad(0, "string or integer", a0);
         }
     } else if (a0.type!=A_STR && a0.type!=A_NIL) {
-        return pa_bad(0, "string", a0);
+        return _pico_atmos_bad(0, "string", a0);
     }
     int ms = -1;
     if (vms.type != A_NIL) {
-        PA_TRY(pa_int(vms, ims, &ms));
+        _PICO_ATMOS_TRY(_pico_atmos_int(vms, ims, &ms));
         if (ms < -1) {
-            return a_error("%s : invalid timeout", PA_FN);
+            return a_error("%s : invalid timeout", _PICO_ATMOS_FN);
         }
     }
     int id = PICO_EVENT_ANY;
     if (a0.type == A_STR) {
-        for (int i=0; i<PA_NEVENTS; i++) {
-            if (!strcmp(PA_EVENTS[i].name, A_STR_OF(a0)->s)) {
-                id = PA_EVENTS[i].id;
+        for (int i=0; i<_PICO_ATMOS_NEVENTS; i++) {
+            if (!strcmp(_PICO_ATMOS_EVENTS[i].name, A_STR_OF(a0)->s)) {
+                id = _PICO_ATMOS_EVENTS[i].id;
             }
         }
         if (id == PICO_EVENT_ANY) {
             return a_error("%s : invalid event \"%s\"",
-                PA_FN, A_STR_OF(a0)->s);
+                _PICO_ATMOS_FN, A_STR_OF(a0)->s);
         }
     }
     Pico_Event e;
     int dt = (ms == -1) ? pico_input_event(&e, id)
                         : pico_input_event_timeout(&e, id, ms);
-    a_push((e.type == PICO_EVENT_NONE) ? a_nil() : pa_mk_event(&e));
+    a_push((e.type == PICO_EVENT_NONE) ? a_nil() : _pico_atmos_mk_event(&e));
     a_push(a_int(dt));
     return A_OK;
 }
 
 // pico.input.loop()
-static AStatus l_input_loop (AFunc* self, int argc, AVal* argv) {
-    PA_IN("input.loop")
+static AStatus _pico_atmos_l_input_loop (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("input.loop")
     pico_input_loop();
     return A_OK;
 }
@@ -2008,23 +2008,23 @@ static AStatus l_input_loop (AFunc* self, int argc, AVal* argv) {
 ///////////////////////////////////////////////////////////////////////////////
 
 // pico.output.clear()
-static AStatus l_output_clear (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.clear")
+static AStatus _pico_atmos_l_output_clear (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.clear")
     pico_output_clear();
     return A_OK;
 }
 
 // pico.output.draw.image(path, rect)
-static AStatus l_output_draw_image (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.image")
+static AStatus _pico_atmos_l_output_draw_image (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.image")
     const char* path;
     Pico_Rel_Rect rect;
-    PA_TRY(pa_str(PA_ARG(0),0,&path) && pa_file(path));
-    PA_TRY(pa_rect(PA_ARG(1), &rect));
+    _PICO_ATMOS_TRY(_pico_atmos_str(_PICO_ATMOS_ARG(0),0,&path) && _pico_atmos_file(path));
+    _PICO_ATMOS_TRY(_pico_atmos_rect(_PICO_ATMOS_ARG(1), &rect));
     Pico_Rel_Dim dim = { rect.mode, {rect.w, rect.h} };
     pico_get_image(&dim, path);         // completes the rect of the caller
-    pa_set(argv[1], "w", a_num(dim.w));
-    pa_set(argv[1], "h", a_num(dim.h));
+    _pico_atmos_set(argv[1], "w", a_num(dim.w));
+    _pico_atmos_set(argv[1], "h", a_num(dim.h));
     rect.w = dim.w;
     rect.h = dim.h;
     pico_output_draw_image(path, rect);
@@ -2032,148 +2032,148 @@ static AStatus l_output_draw_image (AFunc* self, int argc, AVal* argv) {
 }
 
 // pico.output.draw.layer(layer [, rect])
-static AStatus l_output_draw_layer (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.layer")
-    PA_Lay* s;
+static AStatus _pico_atmos_l_output_draw_layer (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.layer")
+    _PICO_ATMOS_Lay* s;
     Pico_Rel_Rect rect, *xrect=NULL;
-    PA_TRY(pa_lay(PA_ARG(0), &s));
-    if (PA_ARG(1).type != A_NIL) {
-        PA_TRY(pa_rect(argv[1], &rect));
+    _PICO_ATMOS_TRY(_pico_atmos_lay(_PICO_ATMOS_ARG(0), &s));
+    if (_PICO_ATMOS_ARG(1).type != A_NIL) {
+        _PICO_ATMOS_TRY(_pico_atmos_rect(argv[1], &rect));
         xrect = &rect;
     }
-    if (s == PA.cur) {
-        return a_error("%s : cannot draw the current layer onto itself", PA_FN);
+    if (s == _PICO_ATMOS.cur) {
+        return a_error("%s : cannot draw the current layer onto itself", _PICO_ATMOS_FN);
     }
     pico_output_draw_layer(s->lay, xrect);
     return A_OK;
 }
 
 // pico.output.draw.layers()
-static AStatus l_output_draw_layers (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.layers")
+static AStatus _pico_atmos_l_output_draw_layers (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.layers")
     pico_output_draw_layers();
     return A_OK;
 }
 
 // pico.output.draw.line(p1, p2)
-static AStatus l_output_draw_line (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.line")
+static AStatus _pico_atmos_l_output_draw_line (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.line")
     Pico_Rel_Pos p1, p2;
-    PA_TRY(pa_pos(PA_ARG(0),&p1) && pa_pos(PA_ARG(1),&p2));
+    _PICO_ATMOS_TRY(_pico_atmos_pos(_PICO_ATMOS_ARG(0),&p1) && _pico_atmos_pos(_PICO_ATMOS_ARG(1),&p2));
     pico_output_draw_line(p1, p2);
     return A_OK;
 }
 
 // pico.output.draw.oval(rect)
-static AStatus l_output_draw_oval (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.oval")
+static AStatus _pico_atmos_l_output_draw_oval (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.oval")
     Pico_Rel_Rect rect;
-    PA_TRY(pa_rect(PA_ARG(0), &rect));
+    _PICO_ATMOS_TRY(_pico_atmos_rect(_PICO_ATMOS_ARG(0), &rect));
     pico_output_draw_oval(rect);
     return A_OK;
 }
 
 // pico.output.draw.pixel(pos)
-static AStatus l_output_draw_pixel (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.pixel")
+static AStatus _pico_atmos_l_output_draw_pixel (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.pixel")
     Pico_Rel_Pos pos;
-    PA_TRY(pa_pos(PA_ARG(0), &pos));
+    _PICO_ATMOS_TRY(_pico_atmos_pos(_PICO_ATMOS_ARG(0), &pos));
     pico_output_draw_pixel(pos);
     return A_OK;
 }
 
 // pico.output.draw.pixels(ps)
-static AStatus l_output_draw_pixels (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.pixels")
+static AStatus _pico_atmos_l_output_draw_pixels (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.pixels")
     int n;
     Pico_Rel_Pos* ps;
-    PA_TRY(pa_poss(PA_ARG(0), &n, &ps));
+    _PICO_ATMOS_TRY(_pico_atmos_poss(_PICO_ATMOS_ARG(0), &n, &ps));
     pico_output_draw_pixels(n, ps);
     free(ps);
     return A_OK;
 }
 
 // pico.output.draw.poly(ps)
-static AStatus l_output_draw_poly (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.poly")
+static AStatus _pico_atmos_l_output_draw_poly (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.poly")
     int n;
     Pico_Rel_Pos* ps;
-    PA_TRY(pa_poss(PA_ARG(0), &n, &ps));
+    _PICO_ATMOS_TRY(_pico_atmos_poss(_PICO_ATMOS_ARG(0), &n, &ps));
     pico_output_draw_poly(n, ps);
     free(ps);
     return A_OK;
 }
 
 // pico.output.draw.rect(rect)
-static AStatus l_output_draw_rect (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.rect")
+static AStatus _pico_atmos_l_output_draw_rect (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.rect")
     Pico_Rel_Rect rect;
-    PA_TRY(pa_rect(PA_ARG(0), &rect));
+    _PICO_ATMOS_TRY(_pico_atmos_rect(_PICO_ATMOS_ARG(0), &rect));
     pico_output_draw_rect(rect);
     return A_OK;
 }
 
 // pico.output.draw.text(text, rect)
-static AStatus l_output_draw_text (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.text")
+static AStatus _pico_atmos_l_output_draw_text (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.text")
     AVal text;
     Pico_Rel_Rect rect;
-    PA_TRY(pa_rect(PA_ARG(1), &rect));
+    _PICO_ATMOS_TRY(_pico_atmos_rect(_PICO_ATMOS_ARG(1), &rect));
     if (rect.h == 0) {
-        return a_error("%s : expected numeric field 'h'", PA_FN);
+        return a_error("%s : expected numeric field 'h'", _PICO_ATMOS_FN);
     }
-    PA_TRY(pa_text(PA_ARG(0), 0, &text));
+    _PICO_ATMOS_TRY(_pico_atmos_text(_PICO_ATMOS_ARG(0), 0, &text));
     pico_output_draw_text(A_STR_OF(text)->s, rect);
     a_dec(text);
     return A_OK;
 }
 
 // pico.output.draw.tri(p1, p2, p3)
-static AStatus l_output_draw_tri (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.tri")
+static AStatus _pico_atmos_l_output_draw_tri (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.tri")
     Pico_Rel_Pos p1, p2, p3;
-    PA_TRY(pa_pos(PA_ARG(0),&p1) && pa_pos(PA_ARG(1),&p2) && pa_pos(PA_ARG(2),&p3));
+    _PICO_ATMOS_TRY(_pico_atmos_pos(_PICO_ATMOS_ARG(0),&p1) && _pico_atmos_pos(_PICO_ATMOS_ARG(1),&p2) && _pico_atmos_pos(_PICO_ATMOS_ARG(2),&p3));
     pico_output_draw_tri(p1, p2, p3);
     return A_OK;
 }
 
 // pico.output.draw.video(path, rect): false at the end of the video
-static AStatus l_output_draw_video (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.draw.video")
+static AStatus _pico_atmos_l_output_draw_video (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.draw.video")
     const char* path;
     Pico_Rel_Rect rect;
-    PA_TRY(pa_str(PA_ARG(0),0,&path) && pa_file(path));
-    PA_TRY(pa_rect(PA_ARG(1), &rect));
+    _PICO_ATMOS_TRY(_pico_atmos_str(_PICO_ATMOS_ARG(0),0,&path) && _pico_atmos_file(path));
+    _PICO_ATMOS_TRY(_pico_atmos_rect(_PICO_ATMOS_ARG(1), &rect));
     a_push(a_bool(pico_output_draw_video(path, rect)));
     return A_OK;
 }
 
 // pico.output.present([layers])
-static AStatus l_output_present (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.present")
-    int layers = (PA_ARG(0).type == A_NIL) ? 1 : a_truthy(argv[0]);
+static AStatus _pico_atmos_l_output_present (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.present")
+    int layers = (_PICO_ATMOS_ARG(0).type == A_NIL) ? 1 : a_truthy(argv[0]);
     if (!layers && !pico_get_expert(NULL)) {
-        return a_error("%s : 'layers' must be true out of expert mode", PA_FN);
+        return a_error("%s : 'layers' must be true out of expert mode", _PICO_ATMOS_FN);
     }
     pico_output_present(layers);
     return A_OK;
 }
 
 // pico.output.screenshot([layer [, path] [, rect]]): the path
-static AStatus l_output_screenshot (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.screenshot")
+static AStatus _pico_atmos_l_output_screenshot (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.screenshot")
     Pico_Layer* lay;
-    PA_TRY(pa_lay_opt(PA_ARG(0), &lay, NULL));
-    AVal a1 = PA_ARG(1);
-    AVal a2 = PA_ARG(2);
+    _PICO_ATMOS_TRY(_pico_atmos_lay_opt(_PICO_ATMOS_ARG(0), &lay, NULL));
+    AVal a1 = _PICO_ATMOS_ARG(1);
+    AVal a2 = _PICO_ATMOS_ARG(2);
     const char* path = (a1.type == A_STR) ? A_STR_OF(a1)->s : NULL;
     AVal vrect = (a1.type == A_TAB) ? a1 : a2;
     if (a1.type!=A_NIL && a1.type!=A_STR && a1.type!=A_TAB) {
-        return pa_bad(1, "string or rect", a1);
+        return _pico_atmos_bad(1, "string or rect", a1);
     }
     Pico_Rel_Rect rect, *xrect=NULL;
     if (vrect.type != A_NIL) {
-        PA_TRY(pa_rect(vrect, &rect));
+        _PICO_ATMOS_TRY(_pico_atmos_rect(vrect, &rect));
         xrect = &rect;
     }
     a_push(a_strn(pico_output_screenshot(lay, path, xrect)));
@@ -2181,15 +2181,15 @@ static AStatus l_output_screenshot (AFunc* self, int argc, AVal* argv) {
 }
 
 // pico.output.sound(sound|path)
-static AStatus l_output_sound (AFunc* self, int argc, AVal* argv) {
-    PA_IN("output.sound")
-    AVal v = PA_ARG(0);
+static AStatus _pico_atmos_l_output_sound (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("output.sound")
+    AVal v = _PICO_ATMOS_ARG(0);
     if (v.type == A_STR) {
-        PA_TRY(pa_file(A_STR_OF(v)->s));
+        _PICO_ATMOS_TRY(_pico_atmos_file(A_STR_OF(v)->s));
         pico_output_sound_path(A_STR_OF(v)->s);
     } else {
-        PA_Res* r;
-        PA_TRY(pa_res(v, PA_KIND_SND, &r));
+        _PICO_ATMOS_Res* r;
+        _PICO_ATMOS_TRY(_pico_atmos_res(v, _PICO_ATMOS_KIND_SND, &r));
         pico_output_sound(r->ptr);
     }
     return A_OK;
@@ -2200,24 +2200,24 @@ static AStatus l_output_sound (AFunc* self, int argc, AVal* argv) {
 ///////////////////////////////////////////////////////////////////////////////
 
 // pico.equal(a, b): the numbers are close enough
-static AStatus l_equal (AFunc* self, int argc, AVal* argv) {
-    PA_IN0("equal")
-    AVal a = PA_ARG(0);
-    AVal b = PA_ARG(1);
+static AStatus _pico_atmos_l_equal (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN0("equal")
+    AVal a = _PICO_ATMOS_ARG(0);
+    AVal b = _PICO_ATMOS_ARG(1);
     if (!a_isnum(a) || !a_isnum(b)) {
-        return pa_bad(a_isnum(a) ? 1 : 0, "number", a_isnum(a) ? b : a);
+        return _pico_atmos_bad(a_isnum(a) ? 1 : 0, "number", a_isnum(a) ? b : a);
     }
     a_push(a_bool(fabs(a_dbl(a) - a_dbl(b)) < 0.001));
     return A_OK;
 }
 
-static int pa_env (const char* name) {
+static int _pico_atmos_env (const char* name) {
     const char* v = getenv(name);
     return v!=NULL && v[0]!='\0';
 }
 
 // The files exist and have the same contents.
-static int pa_same (const char* path1, const char* path2) {
+static int _pico_atmos_same (const char* path1, const char* path2) {
     FILE* f1 = fopen(path1, "rb");
     FILE* f2 = fopen(path2, "rb");
     int ok = (f1!=NULL && f2!=NULL);
@@ -2239,12 +2239,12 @@ static int pa_same (const char* path1, const char* path2) {
 // compares it with `<tst>/asr/<name>.png` if PICO_CHECK_ASR is set.
 // `<tst>` is `<PICO_ROOT>/c/tst` (`pico-atmos` sets PICO_ROOT to the root
 // of the repository), or `../c/tst` if the variable is not set.
-static AStatus l_check (AFunc* self, int argc, AVal* argv) {
-    PA_IN("check")
+static AStatus _pico_atmos_l_check (AFunc* self, int argc, AVal* argv) {
+    _PICO_ATMOS_IN("check")
     const char* name;
-    PA_TRY(pa_str(PA_ARG(0), 0, &name));
+    _PICO_ATMOS_TRY(_pico_atmos_str(_PICO_ATMOS_ARG(0), 0, &name));
     char tst[1024], dir[1100], out[2048], asr[2048];
-    if (pa_env("PICO_ROOT")) {
+    if (_pico_atmos_env("PICO_ROOT")) {
         snprintf(tst, sizeof(tst), "%s/c/tst", getenv("PICO_ROOT"));
     } else {
         snprintf(tst, sizeof(tst), "../c/tst");
@@ -2253,17 +2253,17 @@ static AStatus l_check (AFunc* self, int argc, AVal* argv) {
     snprintf(out, sizeof(out), "%s/out/%s.png", tst, name);
     snprintf(asr, sizeof(asr), "%s/asr/%s.png", tst, name);
     mkdir(dir, 0777);
-    PA_TRY(pa_file(dir));
+    _PICO_ATMOS_TRY(_pico_atmos_file(dir));
     pico_output_screenshot(pico_layer_window(), out, NULL);
     printf("Testing: %s\n", name);
-    if (pa_env("PICO_CHECK_INT")) {
+    if (_pico_atmos_env("PICO_CHECK_INT")) {
         puts("-=- press any key -=-");
         fflush(stdout);
         pico_input_event(NULL, PICO_EVENT_KEY_DN);
     }
-    if (pa_env("PICO_CHECK_ASR") && !pa_same(out, asr)) {
+    if (_pico_atmos_env("PICO_CHECK_ASR") && !_pico_atmos_same(out, asr)) {
         snprintf(asr, sizeof(asr), "%s/asr/%s-CI.png", tst, name);
-        if (!pa_same(out, asr)) {
+        if (!_pico_atmos_same(out, asr)) {
             return a_error("FAIL: %s", name);
         }
     }
@@ -2274,7 +2274,7 @@ static AStatus l_check (AFunc* self, int argc, AVal* argv) {
 // ENVIRONMENT
 ///////////////////////////////////////////////////////////////////////////////
 
-static AStatus pa_emit_tag (const char* tag, int tab) {
+static AStatus _pico_atmos_emit_tag (const char* tag, int tab) {
     AVal t = a_strz(tag);
     AVal evt = t;
     if (tab) {
@@ -2290,7 +2290,7 @@ static AStatus pa_emit_tag (const char* tag, int tab) {
 // Test script: an entry `dn:x:y`, `up:x:y`, or `mv:x:y` of PICO_ATM_MOUSE.
 // The event has the mouse as a real event has it: in pixels of the window,
 // with the anchor 'C'.
-static AStatus pa_script_mouse (const char* arg) {
+static AStatus _pico_atmos_script_mouse (const char* arg) {
     int x, y;
     char k[3], end;
     int id = PICO_EVENT_NONE;
@@ -2303,33 +2303,33 @@ static AStatus pa_script_mouse (const char* arg) {
     if (id == PICO_EVENT_NONE) {
         return a_error("PICO_ATM_MOUSE : invalid entry \"%s\"", arg);
     }
-    PA.mouse.on = 1;
-    PA.mouse.x  = x;
-    PA.mouse.y  = y;
+    _PICO_ATMOS.mouse.on = 1;
+    _PICO_ATMOS.mouse.x  = x;
+    _PICO_ATMOS.mouse.y  = y;
     if (id != PICO_EVENT_MOUSE_MOTION) {
-        PA.mouse.left = (id == PICO_EVENT_MOUSE_BUTTON_DN);
+        _PICO_ATMOS.mouse.left = (id == PICO_EVENT_MOUSE_BUTTON_DN);
     }
     Pico_Event e = { .type=id };
     Pico_Rel_Pos pos = { .mode='!', .anchor=PICO_ANCHOR_C };
-    e.mouse = pa_mouse(pico_layer_window(), &pos);
-    AVal evt = pa_mk_event(&e);
+    e.mouse = _pico_atmos_mouse(pico_layer_window(), &pos);
+    AVal evt = _pico_atmos_mk_event(&e);
     AStatus st = atm_emit(evt);
     a_dec(evt);
     return st;
 }
 
 // Test script: the entries `frame:...` of a variable that are due.
-static AStatus pa_script (const char* var, int frame) {
+static AStatus _pico_atmos_script (const char* var, int frame) {
     AStatus st = A_OK;
     const char* s = getenv(var);
-    while (s!=NULL && *s!='\0' && st==A_OK && PA.open) {
+    while (s!=NULL && *s!='\0' && st==A_OK && _PICO_ATMOS.open) {
         char item[512];
         size_t n = strcspn(s, ",");
         snprintf(item, sizeof(item), "%.*s", (int)n, s);
         s += n + (s[n] == ',');
         char* arg = strchr(item, ':');
         if (!strcmp(var,"PICO_ATM_MOUSE") && arg!=NULL && atoi(item)==frame) {
-            st = pa_script_mouse(arg+1);
+            st = _pico_atmos_script_mouse(arg+1);
             continue;
         }
         if (arg==NULL || atoi(item)!=frame) {
@@ -2343,10 +2343,10 @@ static AStatus pa_script (const char* var, int frame) {
             AVal tag = a_strz((arg[0] == 'd') ? "key.dn" : "key.up");
             a_tag(e, tag);
             a_dec(tag);
-            pa_set(e, "key",   a_strz(arg+3));
-            pa_set(e, "ctrl",  a_bool(0));
-            pa_set(e, "shift", a_bool(0));
-            pa_set(e, "alt",   a_bool(0));
+            _pico_atmos_set(e, "key",   a_strz(arg+3));
+            _pico_atmos_set(e, "ctrl",  a_bool(0));
+            _pico_atmos_set(e, "shift", a_bool(0));
+            _pico_atmos_set(e, "alt",   a_bool(0));
             st = atm_emit(e);
             a_dec(e);
         }
@@ -2355,13 +2355,13 @@ static AStatus pa_script (const char* var, int frame) {
 }
 
 // The loop of pico: one frame per iteration.
-static AStatus pa_loop (void) {
+static AStatus _pico_atmos_loop (void) {
     AStatus st = A_OK;
 
     // test mode: a fixed number of frames with a fixed duration
     int frames = -1;
     int fixed  = 0;
-    if (pa_env("PICO_ATM_FRAMES")) {
+    if (_pico_atmos_env("PICO_ATM_FRAMES")) {
         sscanf(getenv("PICO_ATM_FRAMES"), "%d:%d", &frames, &fixed);
     }
 
@@ -2370,7 +2370,7 @@ static AStatus pa_loop (void) {
     }
 
     Uint32 prv = pico_get_now();
-    for (int frame=1; st==A_OK && PA.open && atm_alive(); frame++) {
+    for (int frame=1; st==A_OK && _PICO_ATMOS.open && atm_alive(); frame++) {
         // input
         Pico_Event e;
         if (fixed > 0) {
@@ -2389,11 +2389,11 @@ static AStatus pa_loop (void) {
 
         // event
         if (st==A_OK && e.type!=PICO_EVENT_NONE) {
-            AVal evt = pa_mk_event(&e);
+            AVal evt = _pico_atmos_mk_event(&e);
             if (e.type==PICO_EVENT_MOUSE_MOTION ||
                 e.type==PICO_EVENT_MOUSE_BUTTON_DN ||
                 e.type==PICO_EVENT_MOUSE_BUTTON_UP) {
-                PA.mouse.on = 0;    // the real mouse is back
+                _PICO_ATMOS.mouse.on = 0;    // the real mouse is back
             }
             st = atm_emit(evt);
             a_dec(evt);
@@ -2402,27 +2402,27 @@ static AStatus pa_loop (void) {
             }
         }
         if (st == A_OK) {
-            st = pa_script("PICO_ATM_KEYS", frame);
+            st = _pico_atmos_script("PICO_ATM_KEYS", frame);
         }
         if (st == A_OK) {
-            st = pa_script("PICO_ATM_MOUSE", frame);
+            st = _pico_atmos_script("PICO_ATM_MOUSE", frame);
         }
 
         // screen
-        if (st==A_OK && PA.open) {
+        if (st==A_OK && _PICO_ATMOS.open) {
             // always the world, whatever the current layer is
             Pico_Layer* cur = pico_set_layer(pico_layer_world());
             pico_output_clear();
             pico_set_layer(cur);
-            st = pa_emit_tag("draw", 0);
+            st = _pico_atmos_emit_tag("draw", 0);
         }
-        if (st==A_OK && PA.open) {
+        if (st==A_OK && _PICO_ATMOS.open) {
             pico_output_present(1);
-            pa_script("PICO_ATM_SHOT", frame);
+            _pico_atmos_script("PICO_ATM_SHOT", frame);
         }
 
         if (st==A_OK && frames>0 && frame>=frames) {
-            st = pa_emit_tag("quit", 1);
+            st = _pico_atmos_emit_tag("quit", 1);
             break;
         }
     }
@@ -2432,8 +2432,8 @@ static AStatus pa_loop (void) {
 int main (int argc, char** argv) {
     atm_init(argc, argv);
     AStatus st = atm_main();
-    if (st==A_OK && PA.open && atm_alive()) {
-        st = pa_loop();
+    if (st==A_OK && _PICO_ATMOS.open && atm_alive()) {
+        st = _pico_atmos_loop();
     }
     if (st == A_OK) {
         st = atm_stop();
@@ -2448,11 +2448,11 @@ int main (int argc, char** argv) {
 
     // from now on, the values that the program still holds are only
     // released in memory: `pico_close` frees what is alive in pico
-    PA.closing = 1;
-    pa_release();
+    _PICO_ATMOS.closing = 1;
+    _pico_atmos_release();
     atm_quit();
-    if (PA.open) {
-        PA.open = 0;
+    if (_PICO_ATMOS.open) {
+        _PICO_ATMOS.open = 0;
         pico_close();
     }
     return (st == A_OK) ? 0 : 1;
@@ -2462,38 +2462,38 @@ int main (int argc, char** argv) {
 val pico = [
     ;; pico.open([title=, fs=, show=]): opens pico and its window
     ;; (`fs` may also be named `fullscreen`)
-    open  = `:value a_func(l_open,  0)`,
+    open  = `:value a_func(_pico_atmos_l_open,  0)`,
     ;; pico.close(): closes pico, and invalidates all layers, fonts, sounds
-    close = `:value a_func(l_close, 0)`,
+    close = `:value a_func(_pico_atmos_l_close, 0)`,
     ;; pico.quit(): pushes a quit event
-    quit  = `:value a_func(l_quit,  0)`,
+    quit  = `:value a_func(_pico_atmos_l_quit,  0)`,
 
     ;; pico.check(name), pico.equal(a, b): helpers of the visual tests
-    check = `:value a_func(l_check, 0)`,
-    equal = `:value a_func(l_equal, 0)`,
+    check = `:value a_func(_pico_atmos_l_check, 0)`,
+    equal = `:value a_func(_pico_atmos_l_equal, 0)`,
 
     ;; pico.color.*(clr, ...): a new color [r=, g=, b=, a=]
     color = [
-        alpha   = `:value a_func(l_color_alpha,   0)`,  ;; (clr, a)
-        darker  = `:value a_func(l_color_darker,  0)`,  ;; (clr, pct)
-        lighter = `:value a_func(l_color_lighter, 0)`,  ;; (clr, pct)
-        mix     = `:value a_func(l_color_mix,     0)`,  ;; (c1, c2)
+        alpha   = `:value a_func(_pico_atmos_l_color_alpha,   0)`,  ;; (clr, a)
+        darker  = `:value a_func(_pico_atmos_l_color_darker,  0)`,  ;; (clr, pct)
+        lighter = `:value a_func(_pico_atmos_l_color_lighter, 0)`,  ;; (clr, pct)
+        mix     = `:value a_func(_pico_atmos_l_color_mix,     0)`,  ;; (c1, c2)
     ],
 
     ;; pico.cv.*([L_to,] to|mode, [L_fr,] fr): projects `fr` from the layer
     ;; `L_fr` into the layer `L_to` (nil is the current one). The result
     ;; fills the table `to`, or is a new value in the given mode.
     cv = [
-        dim  = `:value a_func(l_cv_dim,  0)`,
-        pos  = `:value a_func(l_cv_pos,  0)`,
-        rect = `:value a_func(l_cv_rect, 0)`,
+        dim  = `:value a_func(_pico_atmos_l_cv_dim,  0)`,
+        pos  = `:value a_func(_pico_atmos_l_cv_pos,  0)`,
+        rect = `:value a_func(_pico_atmos_l_cv_rect, 0)`,
     ],
 
     ;; pico.in.*(out, in): composes `in` onto the rect `out`
     in = [
-        dim  = `:value a_func(l_in_dim,  0)`,
-        pos  = `:value a_func(l_in_pos,  0)`,
-        rect = `:value a_func(l_in_rect, 0)`,
+        dim  = `:value a_func(_pico_atmos_l_in_dim,  0)`,
+        pos  = `:value a_func(_pico_atmos_l_in_pos,  0)`,
+        rect = `:value a_func(_pico_atmos_l_in_rect, 0)`,
     ],
 
     ;; pico.vs.A.B([L1,] v1, [L2,] v2): collision between two values, each
@@ -2501,106 +2501,106 @@ val pico = [
     ;; its layer.
     vs = [
         pos = [
-            pos  = `:value a_func(l_vs_pos_pos,  0)`,
-            rect = `:value a_func(l_vs_pos_rect, 0)`,
+            pos  = `:value a_func(_pico_atmos_l_vs_pos_pos,  0)`,
+            rect = `:value a_func(_pico_atmos_l_vs_pos_rect, 0)`,
         ],
         rect = [
-            pos  = `:value a_func(l_vs_rect_pos,  0)`,
-            rect = `:value a_func(l_vs_rect_rect, 0)`,
+            pos  = `:value a_func(_pico_atmos_l_vs_rect_pos,  0)`,
+            rect = `:value a_func(_pico_atmos_l_vs_rect_rect, 0)`,
         ],
     ],
 
     get = [
-        aids     = `:value a_func(l_get_aids,     0)`,  ;; () -> boolean
-        effect   = `:value a_func(l_get_effect,   0)`,  ;; () -> [alpha=, color=, flip=, grid=, rotate=]
-        expert   = `:value a_func(l_get_expert,   0)`,  ;; () -> boolean, fps
-        image    = `:value a_func(l_get_image,    0)`,  ;; ([dim|mode,] path) -> Dim
-        keyboard = `:value a_func(l_get_keyboard, 0)`,  ;; () -> [key='', ctrl=, shift=, alt=]
-        layer    = `:value a_func(l_get_layer,    0)`,  ;; () -> layer
-        mouse    = `:value a_func(l_get_mouse,    0)`,  ;; ([layer,] mode|pos) -> Mouse
-        now      = `:value a_func(l_get_now,      0)`,  ;; () -> ms
-        pencil   = `:value a_func(l_get_pencil,   0)`,  ;; () -> [color=, font=, style=]
-        scene    = `:value a_func(l_get_scene,    0)`,  ;; () -> [dim=, tile=, target=, source=, clip=, clear=]
-        text     = `:value a_func(l_get_text,     0)`,  ;; (dim, text) -> Dim
-        video    = `:value a_func(l_get_video,    0)`,  ;; ([rect|mode,] layer|path) -> [dim=, fps=, frame=, done=]
-        window   = `:value a_func(l_get_window,   0)`,  ;; () -> [fullscreen=, show=, title=]
+        aids     = `:value a_func(_pico_atmos_l_get_aids,     0)`,  ;; () -> boolean
+        effect   = `:value a_func(_pico_atmos_l_get_effect,   0)`,  ;; () -> [alpha=, color=, flip=, grid=, rotate=]
+        expert   = `:value a_func(_pico_atmos_l_get_expert,   0)`,  ;; () -> boolean, fps
+        image    = `:value a_func(_pico_atmos_l_get_image,    0)`,  ;; ([dim|mode,] path) -> Dim
+        keyboard = `:value a_func(_pico_atmos_l_get_keyboard, 0)`,  ;; () -> [key='', ctrl=, shift=, alt=]
+        layer    = `:value a_func(_pico_atmos_l_get_layer,    0)`,  ;; () -> layer
+        mouse    = `:value a_func(_pico_atmos_l_get_mouse,    0)`,  ;; ([layer,] mode|pos) -> Mouse
+        now      = `:value a_func(_pico_atmos_l_get_now,      0)`,  ;; () -> ms
+        pencil   = `:value a_func(_pico_atmos_l_get_pencil,   0)`,  ;; () -> [color=, font=, style=]
+        scene    = `:value a_func(_pico_atmos_l_get_scene,    0)`,  ;; () -> [dim=, tile=, target=, source=, clip=, clear=]
+        text     = `:value a_func(_pico_atmos_l_get_text,     0)`,  ;; (dim, text) -> Dim
+        video    = `:value a_func(_pico_atmos_l_get_video,    0)`,  ;; ([rect|mode,] layer|path) -> [dim=, fps=, frame=, done=]
+        window   = `:value a_func(_pico_atmos_l_get_window,   0)`,  ;; () -> [fullscreen=, show=, title=]
     ],
 
     ;; omitted fields keep their current values
     set = [
-        aids   = `:value a_func(l_set_aids,   0)`,  ;; (on)
-        dim    = `:value a_func(l_set_dim,    0)`,  ;; (dim): window and world
-        effect = `:value a_func(l_set_effect, 0)`,  ;; [alpha=, color=, flip=, grid=, rotate=[angle=,anchor=]]
-        expert = `:value a_func(l_set_expert, 0)`,  ;; (on [, fps]) -> ms of a frame
-        layer  = `:value a_func(l_set_layer,  0)`,  ;; (layer) -> the previous one
-        mouse  = `:value a_func(l_set_mouse,  0)`,  ;; ([layer,] pos)
+        aids   = `:value a_func(_pico_atmos_l_set_aids,   0)`,  ;; (on)
+        dim    = `:value a_func(_pico_atmos_l_set_dim,    0)`,  ;; (dim): window and world
+        effect = `:value a_func(_pico_atmos_l_set_effect, 0)`,  ;; [alpha=, color=, flip=, grid=, rotate=[angle=,anchor=]]
+        expert = `:value a_func(_pico_atmos_l_set_expert, 0)`,  ;; (on [, fps]) -> ms of a frame
+        layer  = `:value a_func(_pico_atmos_l_set_layer,  0)`,  ;; (layer) -> the previous one
+        mouse  = `:value a_func(_pico_atmos_l_set_mouse,  0)`,  ;; ([layer,] pos)
         ;; font: a font, a path, or :default (the built-in font)
-        pencil = `:value a_func(l_set_pencil, 0)`,  ;; [color=, font=, style='fill'|'stroke']
-        scene  = `:value a_func(l_set_scene,  0)`,  ;; [dim=, tile=, target=, source=, clip=, clear=]
-        video  = `:value a_func(l_set_video,  0)`,  ;; (layer, frame) -> boolean
-        window = `:value a_func(l_set_window, 0)`,  ;; [fullscreen=, show=, title=]
+        pencil = `:value a_func(_pico_atmos_l_set_pencil, 0)`,  ;; [color=, font=, style='fill'|'stroke']
+        scene  = `:value a_func(_pico_atmos_l_set_scene,  0)`,  ;; [dim=, tile=, target=, source=, clip=, clear=]
+        video  = `:value a_func(_pico_atmos_l_set_video,  0)`,  ;; (layer, frame) -> boolean
+        window = `:value a_func(_pico_atmos_l_set_window, 0)`,  ;; [fullscreen=, show=, title=]
     ],
 
     ;; Each constructor evaluates to a new layer:
     ;;  - up: the parent to attach it to (default: detached)
     ;;  - target: its placement in the parent (default: all of it)
     layer = [
-        world      = `:value a_func(l_layer_world,      0)`,  ;; ()
-        window     = `:value a_func(l_layer_window,     0)`,  ;; ()
-        empty      = `:value a_func(l_layer_empty,      0)`,  ;; [up=, clear=, dim=, tile=, target=]
-        image      = `:value a_func(l_layer_image,      0)`,  ;; [up=, path=, target=]
+        world      = `:value a_func(_pico_atmos_l_layer_world,      0)`,  ;; ()
+        window     = `:value a_func(_pico_atmos_l_layer_window,     0)`,  ;; ()
+        empty      = `:value a_func(_pico_atmos_l_layer_empty,      0)`,  ;; [up=, clear=, dim=, tile=, target=]
+        image      = `:value a_func(_pico_atmos_l_layer_image,      0)`,  ;; [up=, path=, target=]
         ;; a table with the sub-layers of a sprite sheet:
         ;;  - sheet=['#', w=cols, h=rows, n=count]: a vector, left to right
         ;;  - sheet=['!', name=Rect, ...]: a table with the same names
         ;;  - target: the placement of every sub-layer (all the same)
-        images     = `:value a_func(l_layer_images,     0)`,  ;; [up=, path=, sheet=, target=]
+        images     = `:value a_func(_pico_atmos_l_layer_images,     0)`,  ;; [up=, path=, sheet=, target=]
         ;; `pixels` may also be named `pixmap`
-        pixmap     = `:value a_func(l_layer_pixmap,     0)`,  ;; [up=, pixels=, target=]
+        pixmap     = `:value a_func(_pico_atmos_l_layer_pixmap,     0)`,  ;; [up=, pixels=, target=]
         ;; `sup` and `crop` may also be named `src` and `rect`
-        screenshot = `:value a_func(l_layer_screenshot, 0)`,  ;; [up=, sup=, crop=, target=]
-        sub        = `:value a_func(l_layer_sub,        0)`,  ;; [up=, sup=, crop=, target=]
-        text       = `:value a_func(l_layer_text,       0)`,  ;; [up=, dim=, text=, target=]
-        video      = `:value a_func(l_layer_video,      0)`,  ;; [up=, path=, target=]
+        screenshot = `:value a_func(_pico_atmos_l_layer_screenshot, 0)`,  ;; [up=, sup=, crop=, target=]
+        sub        = `:value a_func(_pico_atmos_l_layer_sub,        0)`,  ;; [up=, sup=, crop=, target=]
+        text       = `:value a_func(_pico_atmos_l_layer_text,       0)`,  ;; [up=, dim=, text=, target=]
+        video      = `:value a_func(_pico_atmos_l_layer_video,      0)`,  ;; [up=, path=, target=]
     ],
 
     font = [
-        load = `:value a_func(l_font_load, 0)`,     ;; (path) -> font
+        load = `:value a_func(_pico_atmos_l_font_load, 0)`,     ;; (path) -> font
     ],
 
     sound = [
-        load = `:value a_func(l_sound_load, 0)`,    ;; (path) -> sound
+        load = `:value a_func(_pico_atmos_l_sound_load, 0)`,    ;; (path) -> sound
     ],
 
     input = [
-        delay = `:value a_func(l_input_delay, 0)`,  ;; (ms) -> ms passed
+        delay = `:value a_func(_pico_atmos_l_input_delay, 0)`,  ;; (ms) -> ms passed
         ;; () | (ms) | (filter [, ms]) -> event|nil, ms passed
         ;;  - filter: 'quit', 'key.dn', 'key.up', 'mouse.motion',
         ;;    'mouse.button.dn', 'mouse.button.up', 'window.resize', or nil
         ;;    for any event
         ;;  - ms: an integer >= 0, or nil (or -1) for no timeout
         ;;  - any other type for the two is an error
-        event = `:value a_func(l_input_event, 0)`,
-        loop  = `:value a_func(l_input_loop,  0)`,  ;; (): until the window closes
+        event = `:value a_func(_pico_atmos_l_input_event, 0)`,
+        loop  = `:value a_func(_pico_atmos_l_input_loop,  0)`,  ;; (): until the window closes
     ],
 
     output = [
-        clear      = `:value a_func(l_output_clear,      0)`,  ;; ()
-        present    = `:value a_func(l_output_present,    0)`,  ;; ([layers])
-        screenshot = `:value a_func(l_output_screenshot, 0)`,  ;; ([layer [, path] [, rect]]) -> path
-        sound      = `:value a_func(l_output_sound,      0)`,  ;; (sound|path)
+        clear      = `:value a_func(_pico_atmos_l_output_clear,      0)`,  ;; ()
+        present    = `:value a_func(_pico_atmos_l_output_present,    0)`,  ;; ([layers])
+        screenshot = `:value a_func(_pico_atmos_l_output_screenshot, 0)`,  ;; ([layer [, path] [, rect]]) -> path
+        sound      = `:value a_func(_pico_atmos_l_output_sound,      0)`,  ;; (sound|path)
         draw = [
-            image  = `:value a_func(l_output_draw_image,  0)`,  ;; (path, rect)
-            layer  = `:value a_func(l_output_draw_layer,  0)`,  ;; (layer [, rect])
-            layers = `:value a_func(l_output_draw_layers, 0)`,  ;; ()
-            line   = `:value a_func(l_output_draw_line,   0)`,  ;; (p1, p2)
-            oval   = `:value a_func(l_output_draw_oval,   0)`,  ;; (rect)
-            pixel  = `:value a_func(l_output_draw_pixel,  0)`,  ;; (pos)
-            pixels = `:value a_func(l_output_draw_pixels, 0)`,  ;; (ps)
-            poly   = `:value a_func(l_output_draw_poly,   0)`,  ;; (ps)
-            rect   = `:value a_func(l_output_draw_rect,   0)`,  ;; (rect)
-            text   = `:value a_func(l_output_draw_text,   0)`,  ;; (text, rect)
-            tri    = `:value a_func(l_output_draw_tri,    0)`,  ;; (p1, p2, p3)
-            video  = `:value a_func(l_output_draw_video,  0)`,  ;; (path, rect) -> boolean
+            image  = `:value a_func(_pico_atmos_l_output_draw_image,  0)`,  ;; (path, rect)
+            layer  = `:value a_func(_pico_atmos_l_output_draw_layer,  0)`,  ;; (layer [, rect])
+            layers = `:value a_func(_pico_atmos_l_output_draw_layers, 0)`,  ;; ()
+            line   = `:value a_func(_pico_atmos_l_output_draw_line,   0)`,  ;; (p1, p2)
+            oval   = `:value a_func(_pico_atmos_l_output_draw_oval,   0)`,  ;; (rect)
+            pixel  = `:value a_func(_pico_atmos_l_output_draw_pixel,  0)`,  ;; (pos)
+            pixels = `:value a_func(_pico_atmos_l_output_draw_pixels, 0)`,  ;; (ps)
+            poly   = `:value a_func(_pico_atmos_l_output_draw_poly,   0)`,  ;; (ps)
+            rect   = `:value a_func(_pico_atmos_l_output_draw_rect,   0)`,  ;; (rect)
+            text   = `:value a_func(_pico_atmos_l_output_draw_text,   0)`,  ;; (text, rect)
+            tri    = `:value a_func(_pico_atmos_l_output_draw_tri,    0)`,  ;; (p1, p2, p3)
+            video  = `:value a_func(_pico_atmos_l_output_draw_video,  0)`,  ;; (path, rect) -> boolean
         ],
     ],
 ]
