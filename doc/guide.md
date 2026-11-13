@@ -1349,6 +1349,10 @@ On each frame, the loop emits, in this order:
 3. the event `:draw`, between a clear and a present, for the program to redraw
    the screen.
 
+The clear always applies to the world layer, even if the program awaits with
+another layer as the current one, and cascades to the layers attached to it
+with `clear=true`.
+
 The loop runs in expert mode, at `30` FPS if the program has not enabled the
 expert mode itself, or at the rate that the program sets with
 `pico.set.expert(true,fps)`.

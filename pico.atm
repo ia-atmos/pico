@@ -116,6 +116,11 @@
 ;;      :draw                   to redraw the screen, between a clear and a
 ;;                              present
 ;;
+;; The clear of a frame always applies to the world layer, whatever the
+;; current layer is when the program awaits (which the loop keeps as the
+;; current one). As any clear, it cascades to the descendants of the world
+;; created with `clear=true`: the other layers keep what was drawn on them.
+;;
 ;; At most one real input event is emitted per frame (the others wait for the
 ;; next frames). The scripted events of PICO_ATM_KEYS and PICO_ATM_MOUSE
 ;; (below) are emitted in addition, after the real one and before `:draw`: all
@@ -2439,7 +2444,10 @@ static AStatus pa_loop (void) {
 
         // screen
         if (st==A_OK && PA.open) {
+            // always the world, whatever the current layer is
+            Pico_Layer* cur = pico_set_layer(pico_layer_world());
             pico_output_clear();
+            pico_set_layer(cur);
             st = pa_emit_tag("draw", 0);
         }
         if (st==A_OK && PA.open) {

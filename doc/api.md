@@ -696,8 +696,11 @@ order:
 - The time is only emitted if it is greater than zero: a frame in which `0ms`
   passed emits no time.
 - The event `:draw` is a plain tag, not a table.
-  The clear before it applies to the current layer, which is the world,
-  unless the program changes it.
+  The clear before it always applies to the world layer, whatever the
+  current layer is when the program awaits, and the current layer remains
+  the same. As any clear, it cascades to the descendants of the world created
+  with `clear=true`: the other layers keep what was drawn on them in the
+  previous frames.
 - The loop terminates with `:quit`, with the program (when the main chunk
   terminates), or with `pico.close()`.
   After `:quit`, the program is aborted: only the tasks that await `:quit`
