@@ -4,7 +4,7 @@ A port of [ceu-sdl-storm][storm] to [Atmos][atmos] and [pico][pico].
 
 [storm]: https://github.com/fsantanna/ceu-sdl-storm
 [atmos]: https://github.com/ia-atmos/lang
-[pico]:  https://github.com/ia-atmos/pico
+[pico]:  https://github.com/ia-atmos/env-pico
 
 # Install
 
@@ -25,3 +25,11 @@ ATMOS=/path/to/atmos ../../pico-atmos main.atm
 
 - `Left` and `Right` move the car.
 - `Down` spawns a lightning.
+
+# Notes
+
+- The collisions between drops and between drops and the car are tested
+  once per frame.
+  A small C function in `ts.atm` (`near_set`, `near_get`) selects the
+  drops that are close to each other, and only these are tested with
+  `pico.vs.rect.rect`.
