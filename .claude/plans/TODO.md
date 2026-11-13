@@ -62,8 +62,14 @@ Last update: 2026-11-13.
     positions would become centres and the `pst + len/2` arithmetic goes
     away.
 13. **Per-frame clear in the reactive loop** applies to the current
-    layer, not necessarily the world (as in the old `env-pico`). Under
-    investigation; options to be listed here.
+    layer, not necessarily the world (as in the old `env-pico`).
+    Confirmed: if a program awaits with another layer current, only that
+    layer is cleared and everything drawn on the world accumulates; a
+    child without `clear=true` accumulates even when the world is
+    current. Options: (a) keep and document; (b) always clear the world
+    (cascades to `clear=true` descendants; suggested); (c) clear the
+    world and the current layer; (d) reset the current layer to the
+    world at each frame.
 14. **Children of image / pixmap / screenshot layers.** Rejected today
     (C asserts at attach; Atmos raises an error). See
     `260710-image-pixmap-target-bug.md`.
@@ -79,6 +85,12 @@ Last update: 2026-11-13.
     `fsantanna/pico-sdl`. Decide where the documentation site and the
     releases of this repository live.
 
+18. **`pico.input.event` rejects more than 2 arguments**, stricter than
+    the other functions, which ignore extras. Keep, or relax.
+19. **Remote of the working checkout** still points at the old address
+    `ia-atmos/pico` (it redirects to `ia-atmos/env-pico`); repointing
+    was blocked by the session's permission check and awaits the user.
+
 ## B. Work that is known and not done
 
 1. **Window close in imperative programs.** With aids on and expert off,
@@ -87,13 +99,25 @@ Last update: 2026-11-13.
    there ends without running its `defer` blocks. Needs a way to disable
    that exit alone. The reactive loop is not affected.
 2. **CI for Atmos**: the workflow builds `ia-atmos/lang` and runs
-   `tst/run.sh`; the first run on GitHub is to be checked.
-3. **Binding odd spots** (in progress): `pico.layer.images` ignores
-   `target=`; `pico.check` works only one level below the root;
-   `pico.input.event` ignores a non-integer last argument; header
-   comment vs. code; no scripted mouse in the headless mode.
-4. **Storm in real time** (in progress): collision pass once per frame,
-   no table per pair.
+   `tst/run.sh`, but no "Tests" run has ever started in this repository:
+   Actions on a fork stay disabled until enabled in the Actions tab.
+   First run to be checked once enabled.
+3. **Binding: smaller defects noticed and not fixed**:
+   - `PICO_ATM_KEYS`: malformed entries and unknown key names are
+     ignored or emitted as they are; modifiers cannot be scripted; the
+     `PICO_ATM_SHOT` path is not checked;
+   - `PICO_ATM_MOUSE`: left button only; a `dn`/`up` emits no motion;
+   - `pico.open`: `fs=`/`show=` accept any value by truthiness; a
+     non-string `title=` reports `bad argument #1` although it is a field;
+   - a multi-character mode string is accepted by its first character;
+   - `pico.output.screenshot(layer, rect, x)` ignores the third argument;
+   - `pico.layer.images` grid: fractional `w`/`h` truncated, `n<1` ignored;
+   - `pico.input.delay` truncates fractional ms and accepts negatives;
+   - `pico.check` creates only the last directory level (`out`).
+4. **C library: real mouse events read position and buttons from
+   `SDL_GetMouseState` at conversion time**, not from the event: a
+   queued quick click can arrive as `:mouse.button.dn` with `left=false`,
+   and queued motions all report the latest position.
 5. **`c/tst/todo/*.c`** only had `pico_init` renamed; they do not build.
 6. **Reference images with no test**: `c/tst/asr/push-*.png` (the
    push/pop test is gone).
@@ -145,7 +169,13 @@ Changes made on judgement during the port, reported once, with no answer.
 9. **Language rule met by the binding** (on the compiler author's list):
    a temporary table argument cannot hold a pinned value
    (`pin l = ..; f [up=l]`).
-10. **Runtime behaviour to keep in mind**: `loop us on :clock` wakes at
+10. **Storm rework**: drop-vs-drop and drop-vs-car collisions run once
+    per frame, with a native C filter of near pairs inside `ts.atm`; a
+    drop may travel up to one frame further before reacting. Boom pushes
+    stay per clock piece.
+11. **`PICO_ROOT`** is exported by `pico-atmos`; `$name` inside a
+    `:prelude` block is Atmos interpolation, even in a C comment.
+12. **Runtime behaviour to keep in mind**: `loop us on :clock` wakes at
     every piece of time (one per pending timer instant), not once per
     frame; per-frame logic goes on `:draw`.
 
