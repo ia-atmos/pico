@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['sdl_20documentation_0',['pico-sdl documentation',['../index.html',1,'']]]
+  ['is_20pico_20sdl_0',['What is pico-sdl?',['../index.html#autotoc_md1',1,'']]]
 ];

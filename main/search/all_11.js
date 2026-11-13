@@ -1,14 +1,12 @@
 var searchData=
 [
-  ['scene_0',['scene',['../structPico__Layer.html#abba5a678d065b6eb8df3f56838d35fec',1,'Pico_Layer']]],
-  ['sdl_1',['sdl',['../index.html#autotoc_md3',1,'Building pico-sdl'],['../index.html#autotoc_md1',1,'What is pico-sdl?']]],
-  ['sdl_20documentation_2',['pico-sdl documentation',['../index.html',1,'']]],
-  ['sdl_5ffdim_3',['SDL_FDim',['../structSDL__FDim.html',1,'']]],
-  ['shift_4',['shift',['../structPico__Keyboard.html#aeb5dc86b4afaeba9b1ac88bbe8faf5d5',1,'Pico_Keyboard']]],
-  ['show_5',['show',['../structPico__Window.html#af5b49f0bb3840a3de55e7b352d7608cb',1,'Pico_Window']]],
-  ['size_6',['size',['../structPico__Layer__Video.html#a5272938e9f01d380be59c611d9169de5',1,'Pico_Layer_Video']]],
-  ['src_7',['src',['../struct__pico__mem__alloc__shot__t.html#a639514897d20fdae6e37bfd7a4b6da75',1,'_pico_mem_alloc_shot_t::src'],['../structPico__Layer__Scene.html#a80f5a06503c30d64eeabbbdd76dd8a45',1,'Pico_Layer_Scene::src']]],
-  ['state_8',['State',['../group__State.html',1,'']]],
-  ['style_9',['style',['../structPico__Layer__Pencil.html#a6cf7a4fe13637787d04484928efd7fe4',1,'Pico_Layer_Pencil']]],
-  ['sup_10',['sup',['../structPico__Layer__Sub.html#a51ef2977714e749137713c8eff147a5d',1,'Pico_Layer_Sub']]]
+  ['t0_0',['t0',['../structPico__Layer__Video.html#a1b9b290d3c671a15532e50373b85a971',1,'Pico_Layer_Video::t0'],['../structPicoState.html#a2b17288894edda2c7d07a907d6c80a99',1,'PicoState::t0']]],
+  ['tex_1',['tex',['../structPico__Layer.html#a756b9f5dec9477e6b6e7ff7d389ca2b7',1,'Pico_Layer']]],
+  ['this_20documentation_2',['Using this documentation',['../index.html#autotoc_md5',1,'']]],
+  ['tile_3',['tile',['../structPico__Layer__Scene.html#a83f634b37d0e405b2965d7899dcc7d18',1,'Pico_Layer_Scene']]],
+  ['title_4',['title',['../structPico__Window.html#acb55eeae75fb551ed0ef0ea14046a85c',1,'Pico_Window']]],
+  ['total_5',['total',['../structPico__Layer__Video.html#abca6f281cac7a0ead68a184987111fa2',1,'Pico_Layer_Video']]],
+  ['ttf_6',['ttf',['../structPico__Font.html#a4d6f2f0d033d7b4857243e4ee673d283',1,'Pico_Font']]],
+  ['type_7',['type',['../structPico__Layer.html#a0cbcdf4da4c6e5c050968883f0296fb2',1,'Pico_Layer::type'],['../structPico__Event.html#af303ecd1849dfbae8e3587c65ab1799c',1,'Pico_Event::type']]],
+  ['types_8',['Types',['../group__Types.html',1,'']]]
 ];
