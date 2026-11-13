@@ -1,0 +1,109 @@
+include "../pico.atm"
+
+pico.open()
+pico.set.window [ title="Size - Fullscreen" ]
+
+val r = ['%', x=0.5, y=0.5, w=0.5, h=0.5]
+
+;; phy: normal -> double -> half -> normal
+print("WINDOW")
+do {
+    print("normal")
+    pico.set.layer(pico.layer.window())
+    val win = pico.get.scene().dim
+    pico.set.scene [ dim=['!', w=win.w*1, h=win.h*1] ]
+    pico.set.layer(pico.layer.world())
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_pct-01")
+}
+
+do {
+    print("double")
+    pico.set.layer(pico.layer.window())
+    val win = pico.get.scene().dim
+    pico.set.scene [ dim=['!', w=win.w*2, h=win.h*2] ]
+    pico.set.layer(pico.layer.world())
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_pct-02")
+}
+
+do {
+    print("half")
+    pico.set.layer(pico.layer.window())
+    val win = pico.get.scene().dim
+    pico.set.scene [ dim=['!', w=win.w*0.25, h=win.h*0.25] ]
+    pico.set.layer(pico.layer.world())
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_pct-03")
+}
+
+do {
+    print("normal")
+    pico.set.layer(pico.layer.window())
+    val win = pico.get.scene().dim
+    pico.set.scene [ dim=['!', w=win.w*2, h=win.h*2] ]
+    pico.set.layer(pico.layer.world())
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_pct-04")
+}
+
+;; phy: normal -> full -> normal
+do {
+    print("full")
+    pico.set.window [ fullscreen=true ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    ;; pico.check("size_pct-05")
+}
+
+do {
+    print("normal")
+    pico.set.window [ fullscreen=false ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_pct-06")
+}
+
+;; log: normal -> double -> half -> normal
+print("WORLD")
+do {
+    print("normal")
+    val view = pico.get.scene()
+    pico.set.scene [ dim=['!', w=view.dim.w*1, h=view.dim.h*1] ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_pct-07")
+}
+
+do {
+    print("double")
+    val view = pico.get.scene()
+    pico.set.scene [ dim=['!', w=view.dim.w*2, h=view.dim.h*2] ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_pct-08")
+}
+
+do {
+    print("half")
+    val view = pico.get.scene()
+    pico.set.scene [ dim=['!', w=view.dim.w*0.25, h=view.dim.h*0.25] ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_pct-09")
+}
+
+do {
+    print("normal")
+    val view = pico.get.scene()
+    pico.set.scene [ dim=['!', w=view.dim.w*2, h=view.dim.h*2] ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_pct-10")
+}
+
+pico.close()

@@ -1,0 +1,120 @@
+include "../pico.atm"
+
+pico.open()
+
+;; Create a 4x4 "sprite sheet" layer with colored quadrants
+val sheet = pico.layer.empty [ dim=['!', w=4, h=4] ]
+pico.set.layer(sheet)
+pico.set.effect [ color='black' ]
+pico.output.clear()
+
+;; Top-left: red
+pico.set.pencil [ color='red' ]
+pico.output.draw.rect(['!', x=0, y=0, w=2, h=2, anchor='NW'])
+;; Top-right: green
+pico.set.pencil [ color='green' ]
+pico.output.draw.rect(['!', x=2, y=0, w=2, h=2, anchor='NW'])
+;; Bottom-left: blue
+pico.set.pencil [ color='blue' ]
+pico.output.draw.rect(['!', x=0, y=2, w=2, h=2, anchor='NW'])
+;; Bottom-right: white
+pico.set.pencil [ color='white' ]
+pico.output.draw.rect(['!', x=2, y=2, w=2, h=2, anchor='NW'])
+
+pico.set.layer(pico.layer.world())
+
+;; Shot 1: draw full layer (normal quadrants)
+print("Test 1: full layer")
+pico.output.clear()
+pico.output.draw.layer(sheet,
+    ['%', x=0.5, y=0.5, w=1, h=1, anchor='C'])
+pico.check("sheet-01")
+
+;; Create sub-layers for each quadrant
+print("Test 2: explicit sub-layers (swapped)")
+val tl = pico.layer.sub [ sup=sheet,
+    crop=['!', x=0, y=0, w=2, h=2, anchor='NW'] ]
+val tr = pico.layer.sub [ sup=sheet,
+    crop=['!', x=2, y=0, w=2, h=2, anchor='NW'] ]
+val bl = pico.layer.sub [ sup=sheet,
+    crop=['!', x=0, y=2, w=2, h=2, anchor='NW'] ]
+val br = pico.layer.sub [ sup=sheet,
+    crop=['!', x=2, y=2, w=2, h=2, anchor='NW'] ]
+
+;; Draw sub-layers swapped: TL->BR, TR->BL, BL->TR, BR->TL
+pico.set.effect [ color='black' ]
+pico.output.clear()
+pico.output.draw.layer(tl,
+    ['%', x=0.75, y=0.75, w=0.5, h=0.5, anchor='C'])
+pico.output.draw.layer(tr,
+    ['%', x=0.25, y=0.75, w=0.5, h=0.5, anchor='C'])
+pico.output.draw.layer(bl,
+    ['%', x=0.75, y=0.25, w=0.5, h=0.5, anchor='C'])
+pico.output.draw.layer(br,
+    ['%', x=0.25, y=0.25, w=0.5, h=0.5, anchor='C'])
+pico.check("sheet-02")
+
+;; Test 3: pico.layer.images (grid form)
+print("Test 3: grid form")
+pico.set.effect [ color='black' ]
+pico.output.clear()
+pico.set.pencil [ color='red' ]
+pico.output.draw.rect(
+    ['%', x=0, y=0, w=0.5, h=1, anchor='NW'])
+pico.set.pencil [ color='green' ]
+pico.output.draw.rect(
+    ['%', x=0.5, y=0, w=0.5, h=1, anchor='NW'])
+pico.output.screenshot(pico.layer.window(), "../c/tst/out/sheet-grid.png")
+
+;; a vector with the layers, left to right (the names "grid-NN" are gone)
+val grid = pico.layer.images [
+    path="../c/tst/out/sheet-grid.png",
+    sheet=['#', w=2, h=1],
+]
+assert(#grid == 2)
+assert(type(grid@0) == 'native')
+assert(type(grid@1) == 'native')
+
+pico.set.effect [ color='black' ]
+pico.output.clear()
+pico.output.draw.layer(grid@0,
+    ['%', x=0.75, y=0.5, w=0.5, h=1, anchor='C'])
+pico.output.draw.layer(grid@1,
+    ['%', x=0.25, y=0.5, w=0.5, h=1, anchor='C'])
+pico.check("sheet-03")
+
+;; Test 4: pico.layer.images (explicit form)
+print("Test 4: explicit form")
+;; a table with the layers, with the same names of the sheet
+val expl = pico.layer.images [
+    path="../c/tst/out/sheet-grid.png",
+    sheet=[
+        '!',
+        left  = ['%', x=0, y=0, w=0.5, h=1,
+                 anchor='NW'],
+        right = ['%', x=0.5, y=0, w=0.5, h=1,
+                 anchor='NW'],
+    ],
+]
+do {
+    val names = []
+    loop k,_ in expl {
+        set names@+ = k
+    }
+    assert(#names == 2)
+    vector.sort(names)
+    assert(names@0 == "left")
+    assert(names@1 == "right")
+}
+
+pico.set.effect [ color='black' ]
+pico.output.clear()
+pico.output.draw.layer(expl.left,
+    ['%', x=0.25, y=0.5, w=0.5, h=1, anchor='C']
+)
+pico.output.draw.layer(expl.right,
+    ['%', x=0.75, y=0.5, w=0.5, h=1, anchor='C']
+)
+pico.check("sheet-04")
+
+pico.close()

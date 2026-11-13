@@ -1,0 +1,115 @@
+include "../pico.atm"
+
+pico.open()
+pico.set.window [ title="Size - Fullscreen" ]
+
+pico.set.layer(pico.layer.window())
+val phy = pico.get.scene().dim
+pico.set.layer(pico.layer.world())
+val all = pico.get.scene()
+val log = all.dim
+set phy@0 = '!'
+set log@0 = '!'
+
+val r = ['!', x=50-25, y=50-25, w=50, h=50, anchor='NW']
+
+;; phy: normal -> double -> half -> normal
+print("WINDOW")
+do {
+    print("normal")
+    pico.set.layer(pico.layer.window())
+    pico.set.scene [ dim=phy ]
+    pico.set.layer(pico.layer.world())
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_raw-01")
+}
+
+do {
+    print("double")
+    val dim = ['!', w=phy.w*2, h=phy.h*2]
+    pico.set.layer(pico.layer.window())
+    pico.set.scene [ dim=dim ]
+    pico.set.layer(pico.layer.world())
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_raw-02")
+}
+
+do {
+    print("half")
+    val dim = ['!', w=phy.w/2, h=phy.h/2]
+    pico.set.layer(pico.layer.window())
+    pico.set.scene [ dim=dim ]
+    pico.set.layer(pico.layer.world())
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_raw-03")
+}
+
+do {
+    print("normal")
+    pico.set.layer(pico.layer.window())
+    pico.set.scene [ dim=phy ]
+    pico.set.layer(pico.layer.world())
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_raw-04")
+}
+
+;; phy: normal -> full -> normal
+do {
+    print("full")
+    pico.set.window [ fullscreen=true ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    ;; pico.check("size_raw-05")
+}
+
+do {
+    print("normal")
+    pico.set.window [ fullscreen=false ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_raw-06")
+}
+
+;; log: normal -> double -> half -> normal
+print("WORLD")
+do {
+    print("normal")
+    pico.set.scene [ dim=log ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_raw-07")
+}
+
+do {
+    print("double")
+    val dim = ['!', w=log.w*2, h=log.h*2]
+    pico.set.scene [ dim=dim ]
+    pico.output.clear()
+    val r = ['!', x=log.w-25, y=log.h-25, w=50, h=50, anchor='NW']
+    pico.output.draw.rect(r)
+    pico.check("size_raw-08")
+}
+
+do {
+    print("half")
+    val dim = ['!', w=log.w/2, h=log.h/2]
+    pico.set.scene [ dim=dim ]
+    pico.output.clear()
+    val r = ['!', x=log.w/4-25, y=log.w/4-25, w=50, h=50, anchor='NW']
+    pico.output.draw.rect(r)
+    pico.check("size_raw-09")
+}
+
+do {
+    print("normal")
+    pico.set.scene [ dim=log ]
+    pico.output.clear()
+    pico.output.draw.rect(r)
+    pico.check("size_raw-10")
+}
+
+pico.close()

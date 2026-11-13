@@ -1,0 +1,169 @@
+include "../pico.atm"
+
+pico.open()
+pico.set.window [ title="Rotate / Flip" ]
+pico.set.effect [ color='white' ]
+
+;; Create a layer from image for rotate/flip tests
+val img = pico.layer.image [ path="../c/res/open.png" ]
+
+;; ROTATION - center anchor
+do {
+    print("rotate 0 degrees (no rotate)")
+    pico.output.clear()
+    val old = pico.set.layer(img)
+    pico.set.effect [ rotate=[angle=0, anchor='C'] ]
+    pico.set.layer(old)
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    pico.output.draw.layer(img, r)
+    pico.check("rot-flip-01")
+}
+do {
+    print("rotate 45 degrees")
+    pico.output.clear()
+    val old = pico.set.layer(img)
+    pico.set.effect [ rotate=[angle=45, anchor='C'] ]
+    pico.set.layer(old)
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    pico.output.draw.layer(img, r)
+    pico.check("rot-flip-02")
+}
+do {
+    print("rotate 90 degrees")
+    pico.output.clear()
+    val old = pico.set.layer(img)
+    pico.set.effect [ rotate=[angle=90, anchor='C'] ]
+    pico.set.layer(old)
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    pico.output.draw.layer(img, r)
+    pico.check("rot-flip-03")
+}
+do {
+    print("rotate 180 degrees")
+    pico.output.clear()
+    val old = pico.set.layer(img)
+    pico.set.effect [ rotate=[angle=180, anchor='C'] ]
+    pico.set.layer(old)
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    pico.output.draw.layer(img, r)
+    pico.check("rot-flip-04")
+}
+
+;; ROTATION - corner anchor (NW)
+do {
+    print("rotate 45 degrees, anchor NW")
+    pico.output.clear()
+    val old = pico.set.layer(img)
+    pico.set.effect [ rotate=[angle=45, anchor='NW'] ]
+    pico.set.layer(old)
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    pico.output.draw.layer(img, r)
+    pico.check("rot-flip-05")
+}
+
+;; Reset rotate for flip tests
+do {
+    val old = pico.set.layer(img)
+    pico.set.effect [ rotate=[angle=0, anchor='C'] ]
+    pico.set.layer(old)
+}
+
+;; FLIP - horizontal
+do {
+    print("flip horizontal")
+    pico.output.clear()
+    val old = pico.set.layer(img)
+    pico.set.effect [ flip="horizontal" ]
+    pico.set.layer(old)
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    pico.output.draw.layer(img, r)
+    pico.check("rot-flip-06")
+}
+do {
+    print("flip vertical")
+    pico.output.clear()
+    val old = pico.set.layer(img)
+    pico.set.effect [ flip="vertical" ]
+    pico.set.layer(old)
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    pico.output.draw.layer(img, r)
+    pico.check("rot-flip-07")
+}
+do {
+    print("flip both")
+    pico.output.clear()
+    val old = pico.set.layer(img)
+    pico.set.effect [ flip="both" ]
+    pico.set.layer(old)
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    pico.output.draw.layer(img, r)
+    pico.check("rot-flip-08")
+}
+
+;; COMBINED - rotate + flip
+do {
+    print("rotate 45 + flip horizontal")
+    pico.output.clear()
+    val old = pico.set.layer(img)
+    pico.set.effect [ rotate=[angle=45, anchor='C'], flip="horizontal" ]
+    pico.set.layer(old)
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    pico.output.draw.layer(img, r)
+    pico.check("rot-flip-09")
+}
+
+;; ANIMATED ROTATION - center anchor (default)
+do {
+    print("animated rotate - center anchor")
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    loop i in 72 {      ;; angle = 0, 5, ..., 355
+        val angle = i * 5
+        pico.output.clear()
+        val old = pico.set.layer(img)
+        pico.set.effect [ rotate=[angle=angle, anchor='C'] ]
+        pico.set.layer(old)
+        pico.output.draw.layer(img, r)
+        if angle == 180 {
+            pico.check("rot-flip-10")
+        }
+        pico.input.delay(10)
+    }
+}
+
+;; ANIMATED ROTATION - anchor outside (1.1, 1.1)
+do {
+    print("animated rotate - anchor outside (1.1, 1.1)")
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    loop i in 72 {      ;; angle = 0, 5, ..., 355
+        val angle = i * 5
+        pico.output.clear()
+        val old = pico.set.layer(img)
+        pico.set.effect [ rotate=[angle=angle, anchor=[x=1.1, y=1.1]] ]
+        pico.set.layer(old)
+        pico.output.draw.layer(img, r)
+        if angle == 180 {
+            pico.check("rot-flip-11")
+        }
+        pico.input.delay(10)
+    }
+}
+
+;; ANIMATED ROTATION - anchor negative (-0.1, -0.1)
+do {
+    print("animated rotate - anchor negative (-0.1, -0.1)")
+    val r = ['!', x=50, y=50, w=48, h=48, anchor='C']
+    loop i in 72 {      ;; angle = 0, 5, ..., 355
+        val angle = i * 5
+        pico.output.clear()
+        val old = pico.set.layer(img)
+        pico.set.effect [ rotate=[angle=angle, anchor=[x=-0.1, y=-0.1]] ]
+        pico.set.layer(old)
+        pico.output.draw.layer(img, r)
+        if angle == 180 {
+            pico.check("rot-flip-12")
+        }
+        pico.input.delay(10)
+    }
+}
+
+pico.close()

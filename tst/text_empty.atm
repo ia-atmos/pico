@@ -1,0 +1,41 @@
+include "../pico.atm"
+
+pico.open()
+
+;; pico.get.text: empty string, abs mode -> w stays 0 (no fill)
+do {
+    val dim = pico.get.text(['!', w=nil, h=10], "")
+    assert(dim.w==0 && dim.h==10)
+}
+;; pico.get.text: empty string, pct mode -> w stays 0 (no fill)
+do {
+    val dim = pico.get.text(['%', w=nil, h=0.1], "")
+    assert(dim.w==0 && dim.h*100//1==10)
+}
+
+;; pico.output.draw.text: empty string, abs mode -> no crash, screen stays clear
+do {
+    pico.output.clear()
+    val r = ['!', x=10, y=10, w=0, h=10, anchor='NW']
+    pico.output.draw.text("", r)
+    pico.check("text_empty-01")
+}
+;; pico.output.draw.text: empty string, pct mode -> no crash, screen stays clear
+do {
+    pico.output.clear()
+    val r = ['%', x=0.5, y=0.5, h=0.2]
+    pico.output.draw.text("", r)
+    pico.check("text_empty-02")
+}
+
+;; draw non-empty text, then empty text over it -> original remains
+do {
+    pico.output.clear()
+    val r1 = ['!', x=10, y=10, w=0, h=10, anchor='NW']
+    pico.output.draw.text("HELLO", r1)
+    val r2 = ['!', x=10, y=10, w=0, h=10, anchor='NW']
+    pico.output.draw.text("", r2)
+    pico.check("text_empty-03")
+}
+
+pico.close()

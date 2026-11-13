@@ -1,0 +1,55 @@
+include "../pico.atm"
+
+pico.open()
+pico.set.window [ title="Style" ]
+pico.set.layer(pico.layer.window())
+pico.set.scene [ dim=['!', w=640, h=480] ]
+pico.set.layer(pico.layer.world())
+pico.set.scene [ dim=['!', w=64, h=48] ]
+
+val rect = ['!', x=5, y=5, w=25, h=18, anchor='NW']
+val oval = ['!', x=34, y=5, w=25, h=18, anchor='NW']
+val t1   = ['!', x=5,  y=26, anchor='NW']
+val t2   = ['!', x=5,  y=43, anchor='NW']
+val t3   = ['!', x=30, y=43, anchor='NW']
+val poly = [
+    ['!', x=34, y=26, anchor='NW'],
+    ['!', x=59, y=30, anchor='NW'],
+    ['!', x=50, y=43, anchor='NW'],
+    ['!', x=38, y=43, anchor='NW'],
+]
+
+do {
+    print("default fill")
+    pico.output.clear()
+    pico.set.pencil [ color='white' ]
+    pico.output.draw.rect(rect)
+    pico.output.draw.oval(oval)
+    pico.output.draw.tri(t1, t2, t3)
+    pico.output.draw.poly(poly)
+    pico.check("style-01")
+}
+
+do {
+    print("stroke")
+    pico.output.clear()
+    pico.set.pencil [ style='stroke', color='white' ]
+    pico.output.draw.rect(rect)
+    pico.output.draw.oval(oval)
+    pico.output.draw.tri(t1, t2, t3)
+    pico.output.draw.poly(poly)
+    pico.check("style-02")
+}
+
+do {
+    print("back to fill")
+    pico.output.clear()
+    pico.set.pencil [ style='fill', color='white' ]
+    pico.output.draw.rect(rect)
+    pico.output.draw.oval(oval)
+    pico.output.draw.tri(t1, t2, t3)
+    pico.output.draw.poly(poly)
+    pico.check("style-03")
+}
+
+pico.close()
