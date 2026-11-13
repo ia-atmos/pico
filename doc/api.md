@@ -1,24 +1,30 @@
 # API: pico-atmos
 
 The binding is the file [`pico.atm`](../pico.atm).
-A program includes it with a path relative to the program itself, and runs
-with the script [`pico-atmos`](../pico-atmos), which requires the
-[Atmos](https://github.com/ia-atmos/lang) compiler (`atmos` in the `PATH`, or
-as set in the environment variable `ATMOS`):
-
-```
-include "../pico.atm"
-pico.open()
-...
-```
+A program runs with the script [`pico-atmos`](../pico-atmos), which requires
+the [Atmos](https://github.com/ia-atmos/lang) compiler (`atmos` in the `PATH`,
+or as set in the environment variable `ATMOS`):
 
 ```
 $ pico-atmos file.atm
 ```
 
+- The program does not include the binding: the script compiles it after
+  `pico.atm`, such that the table `pico` is available from its first line.
+  (An `include` of `pico.atm` in the program is harmless: a file is only
+  included once.)
+- The program starts with pico already open, with the default window: there
+  is no initial call to `pico.open`.
+- The program runs from its own directory, such that its relative paths
+  (images, sounds, and its own `include`s) are relative to the file.
+- The messages of the compiler and the traces of errors name the file of the
+  program with its absolute path, as in `/x/y/file.atm : line 3 : ...` and
+  `/x/y/file.atm:3 (call)`.
+
 Everything lives in the single table `pico`.
 All operations, except `pico.open`, `pico.color.*`, and `pico.equal`, raise the
-error `pico is not open` if called before `pico.open` or after `pico.close`.
+error `pico is not open` if called after `pico.close` (and before a new
+`pico.open`).
 
 - [Types](#types)
 - [Lifetimes](#lifetimes)
@@ -418,7 +424,8 @@ In alphabetical order:
         ```
     - A layer is released with its last reference (see
       [Lifetimes](#lifetimes)): there is no `pico.layer.free`.
-- **pico.open**: Initializes pico and opens its window.
+- **pico.open**: Initializes pico and opens its window again, after a
+  `pico.close`.
     ```
     pico.open [
         title:  string,     -- window title (default: built-in title)
@@ -429,7 +436,11 @@ In alphabetical order:
     - `pico.open ()` uses all defaults.
     - The field `fs` may also be named `fullscreen` (`fs` prevails if both
       are given).
-    - It is an error to open pico twice with no `pico.close` in between.
+    - A program starts with pico open, with all defaults: it is an error
+      to call `pico.open` with no `pico.close` before it.
+    - To create the window hidden or in fullscreen, a program closes and
+      reopens pico: `pico.close() ; pico.open [show=false]`.
+      Otherwise, `pico.set.window` changes the window that is open.
     - The current layer is the world.
 - **pico.output**
     - **pico.output.clear**: Clears screen.
@@ -634,17 +645,15 @@ In alphabetical order:
 
 ## Reactive Mode
 
-An imperative program calls `pico.open()`, draws, waits for input with
-`pico.input.*`, and calls `pico.close()` (or leaves it to the end of the
-program).
+A program starts with pico open.
+An imperative program draws, waits for input with `pico.input.*`, and calls
+`pico.close()` (or leaves it to the end of the program).
 
-A reactive program calls `pico.open()` and awaits.
+A reactive program awaits.
 When the main chunk awaits (it does not terminate) and pico is open, the
 program runs inside the loop of pico:
 
 ```
-include "../pico.atm"
-pico.open()
 par {
     loop on :draw {
         pico.output.draw.rect [ '%', x=0.5, y=0.5, w=0.5, h=0.5 ]

@@ -1,9 +1,7 @@
-include "../pico.atm"
-
 ;; A layer with live sub-layers cannot be resized: `pico.set.scene [dim=]`
 ;; and `pico.set.dim` replace the texture that the sub-layers borrow.
 
-pico.open [ title="Layer sub resize" ]
+pico.set.window [ title="Layer sub resize" ]
 
 func fails (msg, f) {
     val ok, err = catch true { f() }

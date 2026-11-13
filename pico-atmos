@@ -17,6 +17,8 @@ if [ $# -eq 0 ] || [ "$1" = --help ]; then
     echo "Environment:"
     echo "  ATMOS        The Atmos compiler (default: atmos in PATH)"
     echo ""
+    echo "The program does not include the binding: it is compiled after"
+    echo "pico.atm, starts with pico open, and runs from its own directory."
     echo "Exports PICO_ROOT, the absolute root of pico, to the program."
     exit 0
 fi
@@ -37,9 +39,16 @@ if [ ! -f "$1" ]; then
     exit 1
 fi
 
-DIR=$(dirname -- "$1")                  # /a/b/c
+DIR=$(cd "$(dirname -- "$1")" && pwd)   # /a/b/c (absolute)
 ATM=$(basename -- "$1")                 # d.atm
 shift
+
+case "$PICO/$DIR/$ATM" in
+    *[\"\\]*)
+        echo "pico-atmos : invalid path : $DIR/$ATM" >&2
+        exit 1
+        ;;
+esac
 
 make -C "$PICO/c" lib >/dev/null || exit 1
 
@@ -55,5 +64,17 @@ if [ -n "$ATMOS_ASAN" ] && [ -z "$LSAN_OPTIONS" ]; then
     export LSAN_OPTIONS="suppressions=$PICO/tst/lsan.supp:print_suppressions=0"
 fi
 
+# The program does not include the binding itself. A wrapper includes
+# the binding and then the program, both with absolute paths, such that
+# the messages of the compiler and the traces of errors name the file of
+# the program. A program that also includes `pico.atm` is not affected:
+# a file is only included once.
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/pico-atmos-XXXXXX") || exit 1
+trap 'rm -rf "$TMP"' EXIT
+trap 'exit 130' INT HUP TERM
+printf 'include "%s"\ninclude "%s"\n' "$PICO/pico.atm" "$DIR/$ATM" \
+    > "$TMP/main.atm"
+
+# the program runs from its own directory
 cd "$DIR/" || exit 1
-exec "$ATMOS" "$ATM" "$@"
+"$ATMOS" "$TMP/main.atm" "$@"

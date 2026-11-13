@@ -1,8 +1,5 @@
-include "../pico.atm"
-
 val IMG = "../c/res/open.png"
 
-pico.open()
 pico.set.window [ title="Image - Size - Crop" ]
 pico.set.effect [ color='white' ]
 

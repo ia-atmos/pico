@@ -1,7 +1,3 @@
-include "../pico.atm"
-
-pico.open()
-
 val phy = ['!', w=200, h=200]
 val log = ['!', w=20, h=20]
 pico.set.layer(pico.layer.window())

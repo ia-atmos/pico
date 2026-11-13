@@ -1,11 +1,9 @@
-include "../pico.atm"
-
 ;; The clear of each frame of the loop always applies to the world, even if
 ;; the program awaits with another layer as the current one. It cascades to
 ;; the children with `clear=true` only, and the current layer is restored.
 `setenv("PICO_ATM_FRAMES", "3:20", 0);`
 
-pico.open [ title="Loop clear" ]
+pico.set.window [ title="Loop clear" ]
 
 val OUT   = "../c/tst/out/"
 val world = pico.layer.world()

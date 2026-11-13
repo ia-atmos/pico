@@ -1,6 +1,3 @@
-include "../pico.atm"
-
-pico.open()
 pico.set.expert(true, 0)    ;; expert: window-direct draws + manual present
 
 ;; initial current layer is world (not window)

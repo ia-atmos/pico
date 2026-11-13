@@ -1,7 +1,3 @@
-include "../pico.atm"
-
-pico.open()
-
 ;; Create a 4x4 "sprite sheet" layer with colored quadrants
 val sheet = pico.layer.empty [ dim=['!', w=4, h=4] ]
 pico.set.layer(sheet)

@@ -8,9 +8,6 @@
 ;;   02 EXPERT -- green is drawn onto the window layer and persists, since an
 ;;                expert present does not clear the window.
 
-include "../pico.atm"
-
-pico.open()
 pico.set.window [ title="Window Clip" ]
 pico.set.pencil [ style='fill' ]
 

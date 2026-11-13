@@ -4,9 +4,7 @@
 ;;
 ;;      pico-atmos rects.atm
 
-include "../pico.atm"
-
-pico.open [ title="2x Rects" ]
+pico.set.window [ title="2x Rects" ]
 
 pico.set.expert(true)
 pico.set.layer(pico.layer.window())

@@ -1,7 +1,3 @@
-include "../pico.atm"
-
-pico.open()
-
 pico.set.dim ['!', w=480, h=480]
 pico.set.effect [ grid=false ]
 

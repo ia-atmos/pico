@@ -1,6 +1,3 @@
-include "../pico.atm"
-
-pico.open()
 val world  = pico.layer.world()
 val window = pico.layer.window()
 var pos

@@ -3,14 +3,11 @@
 ;; inspection.
 ;; State carries between scenes; restarts only where the guide explicitly does.
 
-include "../pico.atm"
-
 ;;-----------------------------------------------------------------------------
 ;; Section 2: Initialization
 ;;-----------------------------------------------------------------------------
 
-;; §2.1: open
-pico.open()
+;; §2.1: open (implicit: the program starts with pico open)
 
 ;;;
 ;;;

@@ -1,5 +1,3 @@
-include "../pico.atm"
-
 ;; The loop of pico, in test mode unless the variables are already set:
 ;;  - 12 frames of 20ms each, then :quit
 ;;  - the mouse moves at frame 2, presses at frame 4, drags at frame 6,
@@ -9,7 +7,7 @@ include "../pico.atm"
 `setenv("PICO_ATM_MOUSE", "2:mv:100:50,4:dn:250:250,6:mv:300:260,8:up:300:260,8:mv:10:20", 0);`
 `setenv("PICO_ATM_SHOT", "7:../c/tst/out/env-mouse-01.png", 0);`
 
-pico.open [ title="Env Mouse" ]
+pico.set.window [ title="Env Mouse" ]
 val window = pico.layer.window()
 
 ;; the fields of a table, sorted, with the types of their values

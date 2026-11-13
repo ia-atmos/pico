@@ -1,10 +1,7 @@
-include "../pico.atm"
-
 ;; The reference images come from the C test (`srand(0)`, `rand()%3 - 1`).
 ;; `math.random(3)` also draws from `rand()`, but scales it instead of taking
 ;; the remainder, so it walks a different path: the steps use `rand()%3` of C.
 
-pico.open()
 pico.set.window [ title="Moving Around" ]
 pico.set.layer(pico.layer.window())
 pico.set.scene [ dim=['!', w=640, h=360] ]

@@ -1,6 +1,3 @@
-include "../../pico.atm"
-
-pico.open()
 pico.set.window [ title="Birds - 05 (termination)" ]
 pico.set.dim ['!', w=640, h=480]
 

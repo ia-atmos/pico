@@ -1,7 +1,3 @@
-include "../pico.atm"
-
-pico.open()
-
 ;; The layers are declared before the block that uses them (instead of
 ;; inside it), since they must remain alive in the blocks that follow.
 

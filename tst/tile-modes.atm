@@ -1,9 +1,5 @@
-include "../pico.atm"
-
 ;; §7 (dim, tile) joint resolution: assert texture dim (D) and stored
 ;; tile (T). Mirrors c/tst/tile-modes.c. Behavioral (no image).
-
-pico.open()
 
 ;; known parent frame for '%' cases: world = 100x100
 pico.set.dim ['!', w=100, h=100]

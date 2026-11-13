@@ -1,0 +1,36 @@
+;; A program starts with pico open (the default window), with no `include`
+;; of the binding and no call to `pico.open`.
+include "../pico.atm"       ;; harmless: a file is only included once
+
+func fails (msg, f) {
+    val ok, err = catch true { f() }
+    assert(!ok, "expected error : " ++ msg)
+    assert(string.find(err, msg), "unexpected error : " ++ err)
+    print("error", err)
+}
+
+print("1. open from the start, with the defaults")
+do {
+    val w = pico.get.window()
+    assert(w.title=="pico-SDL" && w.show==true && w.fullscreen==false)
+    assert(pico.get.layer() == pico.layer.world())
+    assert(pico.get.scene().dim.w == 100)
+    fails("pico is already open", \{ pico.open() })
+    fails("pico is already open", \{ pico.open [ title="X" ] })
+    pico.set.window [ title="Open" ]
+    assert(pico.get.window().title == "Open")
+}
+
+print("2. a hidden window from its creation: close and open")
+do {
+    pico.close()
+    fails("pico is not open", \{ pico.get.window() })
+    pico.open [ title="Hidden", show=false ]
+    val w = pico.get.window()
+    assert(w.title=="Hidden" && w.show==false)
+    fails("pico is already open", \{ pico.open() })
+}
+
+print("3. closed at the end: the termination does not close it again")
+pico.close()
+print("ok")

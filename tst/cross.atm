@@ -1,8 +1,5 @@
-include "../pico.atm"
-
 ;;os.execute("mkdir -p /tmp/cross")
 
-pico.open()
 pico.set.window [ title = "Hello World!" ]
 
 loop i in (0, 99) {

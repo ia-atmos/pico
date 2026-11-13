@@ -1,11 +1,9 @@
-include "../pico.atm"
-
 ;; The forms of `pico.input.event`:
 ;;      ()  (ms)  (filter)  (filter, ms)
 ;; in which `filter` and `ms` may also be `nil`. Any other type for the two
 ;; is an error. Arguments after the second are ignored.
 
-pico.open [ title="Input Event" ]
+pico.set.window [ title="Input Event" ]
 pico.set.aids(false)        ;; 'quit' does not terminate the program
 
 func fails (msg, f) {

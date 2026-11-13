@@ -1,12 +1,9 @@
-include "../pico.atm"
-
 val IMG = "../c/res/open.png"
 
 func round (v) {
     if v>=0 => math.floor(v+0.5) => math.ceil(v-0.5)
 }
 
-pico.open()
 pico.set.window [ title="Image - Size - Crop" ]
 pico.set.effect [ color='white' ]
 

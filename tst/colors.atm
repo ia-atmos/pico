@@ -1,6 +1,3 @@
-include "../pico.atm"
-
-pico.open()
 pico.set.window [ title="Colors Test" ]
 pico.set.layer(pico.layer.window())
 pico.set.scene [ dim=['!', w=640, h=480] ]

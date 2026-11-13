@@ -20,13 +20,9 @@ ATMOS=/path/to/atmos ../../pico-atmos birds-11.atm
 (it may be omitted if `atmos` is in the `PATH`).
 The SDL2 packages listed in the [main README](../README.md) are required.
 
-A game includes the binding with a relative path and opens the window
-explicitly:
-
-```
-include "../../pico.atm"
-pico.open()
-```
+A game does not include the binding nor opens the window: `pico-atmos`
+makes the table `pico` available, and the program starts with the window
+open.
 
 # Running without a display
 

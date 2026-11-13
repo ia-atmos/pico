@@ -1,7 +1,3 @@
-include "../pico.atm"
-
-pico.open()
-
 ;; pico.get.text: empty string, abs mode -> w stays 0 (no fill)
 do {
     val dim = pico.get.text(['!', w=nil, h=10], "")

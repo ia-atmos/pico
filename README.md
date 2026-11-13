@@ -27,8 +27,6 @@ ATMOS=/path/to/atmos ./pico-atmos tst/env.atm
 ```
 
 ```
-include "pico.atm"      ;; path relative to the program
-pico.open()
 spawn {
     loop on :draw {
         pico.output.draw.rect ['%', x=0.5, y=0.5, w=0.5, h=0.5]

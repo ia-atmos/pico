@@ -32,9 +32,6 @@ Atmos has no interactive prompt: a program is a file, which the script
 Save the next program as `hello.atm` in this directory (`doc/`):
 
 ```
-include "../pico.atm"       ;; path relative to the program
-
-pico.open()
 pico.output.draw.rect [ '%', x=0.5, y=0.5, w=0.5, h=0.5 ]
 pico.input.loop()           ;; keeps the window until it is closed
 ```
@@ -48,16 +45,18 @@ $ ../pico-atmos hello.atm
 The script requires the Atmos compiler, either as `atmos` in the `PATH`, or as
 set in the environment variable `ATMOS`.
 
-A program starts with an `include` of the file [`pico.atm`](../pico.atm), with
-a path relative to the program itself.
-A program terminates with its last line, which also closes the window.
+A program does not include the binding ([`pico.atm`](../pico.atm)), nor opens
+the window: the script makes the table `pico` available, and the program
+starts with a window already open.
+A program runs from its own directory, and terminates with its last line,
+which also closes the window.
 For this reason, the example ends with a call to `pico.input.loop`, which waits
 until we close the window.
 
 In the rest of this guide, we only show the lines in between:
 
-- The examples assume a program in this directory, such that `../pico.atm`
-  and the files in `../c/res/` are found.
+- The examples assume a program in this directory, such that the files in
+  `../c/res/` are found.
 - The examples continue each other: the state of an example carries over to the
   next one, until an example restarts `pico-atmos`.
 - To follow the examples step by step, you may insert a
@@ -73,11 +72,12 @@ The manual of Atmos lists all
 
 ### 2.1. Open
 
-To initialize `pico-atmos`, we call `pico.open`:
+A program starts with `pico-atmos` initialized and its window open, with no
+call required:
 
 <table>
 <tr><td><pre>
-pico.open()
+;; (empty program)
 </pre>
 </td><td>
 <img src="../c/tst/asr/guide-02-01-01.png" width="400">
@@ -94,8 +94,8 @@ By default, note that `pico-atmos` conventionally exhibits the grid and
 coordinate labels to aid development with visual inspection.
 You may click the image to zoom in.
 
-The call also accepts a table with the initial window title, fullscreen
-state, and visibility, as in `pico.open [ title="Hello" ]`.
+To change the window title, fullscreen state, and visibility, we call
+`pico.set.window`, as in `pico.set.window [ title="Hello" ]`.
 
 ### 2.2. Configure
 
@@ -155,7 +155,8 @@ pico.close()
 If the program terminates with `pico-atmos` still open, then it is closed
 automatically.
 
-Then, we can restart `pico-atmos` by calling `pico.open` again:
+Then, we can restart `pico-atmos` by calling `pico.open`, which is only valid
+after a `pico.close`:
 
 <table>
 <tr><td><pre>
@@ -271,6 +272,11 @@ pico.output.draw.pixel [ '!', x=73, y=73 ]
 <img src="../c/tst/asr/guide-03-02-03.png" width="200">
 </td></tr>
 </table>
+
+The call also accepts a table with the initial window title, fullscreen
+state, and visibility, as in `pico.open [ title="Hello", show=false ]`.
+This is how a program creates its window hidden or in fullscreen: it closes
+the initial window and opens another.
 
 Let's restart `pico-atmos` for the next examples:
 
@@ -1362,10 +1368,6 @@ advances on input events: timers do not awake while there are none.
 The next example moves a square from left to right:
 
 ```
-include "../pico.atm"
-
-pico.open()
-
 var x = 0
 
 par :any {

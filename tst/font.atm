@@ -1,8 +1,4 @@
-include "../pico.atm"
-
 val FONT = "../c/res/DejaVuSans.ttf"
-
-pico.open()
 
 ;; pico.get.text
 do {

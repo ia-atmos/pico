@@ -1,8 +1,5 @@
-include "../pico.atm"
-
 val VIDEO = "../c/res/video.y4m"
 
-pico.open()
 pico.set.window [ title="Video" ]
 pico.set.effect [ color=['!', r=0x00, g=0x00, b=0x00] ]
 

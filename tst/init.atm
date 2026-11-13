@@ -1,6 +1,4 @@
-include "../pico.atm"
-
-pico.open()
+;; the program starts with pico open: closes it, opens it again, and checks
 pico.close()
 pico.open()
 pico.check("init-01")
