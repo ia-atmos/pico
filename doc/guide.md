@@ -572,6 +572,8 @@ Next, we crop the view in half (`w=h=0.5`) to get a `2x` zoom in:
 
 <table>
 <tr><td><pre>
+pico.output.draw.image('../c/res/open.png',
+    ['%', x=0.5, y=0.5, w=0.5, h=0.5])
 pico.set.scene [
     source = ['%', x=0.5, y=0.5, w=0.5, h=0.5],
 ]
