@@ -5,6 +5,19 @@ Layout:
 
 - repository root is the Atmos binding; the C library moved to `c/`
 - `pico.atm`: binding for Atmos, replaces the Lua binding (`lua/`)
+    - layers, fonts, sounds are values released by their last
+      reference (no keys, no explicit free)
+    - `pico-atmos file.atm`: includes the binding and opens the window
+      before the program runs (`pico.open` only reopens after
+      `pico.close`)
+    - reactive programs run inside the loop of pico, which emits the
+      time, `:draw`, and input events (`:key.dn`, `:mouse.button.dn`, ...)
+    - the clear of each frame applies to the world
+    - `pico.set.pencil [font=:default]`: built-in font
+    - `pico.in.*` (was `pico.xin.*`)
+    - headless runs: `PICO_ATM_FRAMES`, `PICO_ATM_KEYS`,
+      `PICO_ATM_MOUSE`, `PICO_ATM_SHOT`
+- resizing a layer with live sub-layers is an error
 - games copied in: `exs/birds/`, `exs/rocks/`, `exs/storm/`
 
 Modifications (C API):
