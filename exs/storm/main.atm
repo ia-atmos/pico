@@ -1,9 +1,6 @@
-include "../../pico.atm"
-
 val W = 640
 val H = 480
 
-pico.open()
 pico.set.window [ title="Storm" ]
 pico.set.dim ['!', w=W, h=H]
 pico.set.effect [ color=[ r=0x21, g=0x2C, b=0x34 ] ]
