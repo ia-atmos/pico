@@ -4,92 +4,57 @@ Everything that is pending: asked and not decided, reported and not
 acknowledged, or known and not done. Keep it current: remove an item
 when it is settled, add one whenever something is left open.
 
-Last update: 2026-11-13.
+Last update: 2026-11-13 (after the second batch of binding changes).
 
 ## A. Decisions waiting for an answer
 
-1. **`:world` / `:window` as tags.** Accept the tags wherever a layer is
-   expected, instead of (or besides) `pico.layer.world()` /
-   `pico.layer.window()`. Tags are strings at runtime, and a layer
-   argument is told from a mode string (`'!'`, `'%'`, `'#'`) by content,
-   so it is feasible. Suggested: accept both.
-2. **`c/tst/expert.c` timing.** `assert(dt>=100 && dt<=105)` after
-   `pico_input_delay(100)` failed twice under 4 parallel valgrind runs
-   and passes alone. Widen the upper bound (110?), or widen it only under
-   `PICO_TESTS`, or leave it. The observed failing `dt` was not recorded.
-3. **`pico_set_scene_dim` / `pico_set_scene` on a layer with live
-   sub-layers.** They replace the texture; the sub-layers keep the old
-   (destroyed) one. Options: (a) sub-layers read the texture and
-   dimensions through their source at draw time (suggested; the sub
-   already stores its source); (b) assert that the layer has no
-   sub-layers.
-4. **Event tags across bindings.** `pico.atm` emits unprefixed tags
-   (`:quit`, `:key.dn`, `:mouse.button.dn`, `:draw`), as the old
-   `env-pico`; `lib/sdl.atm` and `raylib.atm` prefix them (`:sdl.key.dn`,
-   `:rl.key.dn`, `:rl.frame`, `:rl.draw`). One convention for all
-   bindings is needed: a shared unprefixed vocabulary (programs move
-   between bindings; only one environment exists per program), or a
-   prefix per library. Field names differ too (`key='A'` here,
-   `name='A'` in sdl, `key=262, name='RIGHT'` in raylib).
-5. **Implicit include/open/close.** `pico-atmos` could generate the
-   `include`, and `main` could open pico before the program runs
-   (`pico.close` is already implicit). Cost: `pico.open [..]` arguments
-   (hidden window, fullscreen) and the open/close tests need an explicit
-   mode.
-6. **Packaged binary.** `atmos -o` already gives a native executable with
+1. **Packaged binary.** `atmos -o` already gives a native executable with
    the runtime and `libpico-sdl.a` linked statically; SDL2 and its
    satellite libraries are dynamic. To decide: targets (Linux AppImage or
    static SDL; Windows exe + DLLs via mingw), and how resources (images,
    fonts, sounds) travel with the binary.
-7. **Android / Termux.** Not tried. Plausible inside Termux with the
-   `x11-repo` SDL2 packages and Termux:X11 (it is a Linux userland with
-   clang); not a native APK. `SDL2_gfx` availability unknown.
-8. **`font=false`** selects the built-in font in `pico.set.pencil`
-   (as in the Lua binding; `nil` cannot be told from an omitted field).
-   Alternatives: a tag such as `:default`.
-9. **`tst/move.atm`** calls C's `rand()` in a native literal, because
-   the reference images come from the C test and `math.random` gives
-   another sequence. Alternative: a faithful port that fails, or new
-   reference images for the Atmos test.
-10. **Guide 5.1.** `tst/guide.atm` redraws the image before the zoom and
-    `doc/guide.md` does not; three screenshots differ on a few
-    anti-aliased pixels. Add the line to the guide, or drop it from the
-    test.
-11. **Storm, three judgement calls** made in the port, after the Céu
-    original: `anchor='NW'` on the physics rects; cloud/collision timers
-    in seconds; the fix of the empty random interval. To confirm.
-12. **Storm with the default (centre) anchor** instead of `anchor='NW'`:
-    positions would become centres and the `pst + len/2` arithmetic goes
-    away.
-13. **Per-frame clear in the reactive loop** applies to the current
-    layer, not necessarily the world (as in the old `env-pico`).
-    Confirmed: if a program awaits with another layer current, only that
-    layer is cleared and everything drawn on the world accumulates; a
-    child without `clear=true` accumulates even when the world is
-    current. Options: (a) keep and document; (b) always clear the world
-    (cascades to `clear=true` descendants; suggested); (c) clear the
-    world and the current layer; (d) reset the current layer to the
-    world at each frame.
-14. **Children of image / pixmap / screenshot layers.** Rejected today
-    (C asserts at attach; Atmos raises an error). See
-    `260710-image-pixmap-target-bug.md`.
-15. **Binding functions as Atmos `func`s.** They are C `AFn`s because a
-    native literal could not fail; the compiler now supports it
-    (`st = a_error(..)`). Rewrite in the style of `lib/sdl.atm`, or keep.
-    The `PA_`/`pa_` prefixes are no longer required either.
-16. **Tests of the games** with `test { }` blocks (`atmos -t`): a game
-    could carry its own scripted run and assertions. Needs `pico-atmos`
-    to pass `-t`, and scripted input from inside the program.
-17. **Version branches** (`v0.1`..`v0.7`) were deleted from this fork;
-    the links in `c/README.md` (badge, versions, Doxygen) still point to
-    `fsantanna/pico-sdl`. Decide where the documentation site and the
-    releases of this repository live.
-
-18. **`pico.input.event` rejects more than 2 arguments**, stricter than
-    the other functions, which ignore extras. Keep, or relax.
-19. **Remote of the working checkout** still points at the old address
-    `ia-atmos/pico` (it redirects to `ia-atmos/env-pico`); repointing
-    was blocked by the session's permission check and awaits the user.
+2. **Android / Termux.** Not tried. Plausible inside Termux with the
+   `x11-repo` SDL2 packages and Termux:X11; not a native APK.
+   `SDL2_gfx` availability unknown.
+3. **Pinned values in table arguments** (`pin l = ..; f [up=l]` is
+   `invalid escape`). Being discussed in the "Pin rules discussion"
+   session. On our side the options are: keep resources in plain `val`s
+   (today), or positional resource arguments (`pico.layer.empty(up,
+   [dim=..])`, which accept pinned values).
+4. **Event vocabulary across bindings.** Decided: unprefixed tags
+   (signalled to the compiler session). Open: field names of key events
+   (`key='A'` + `ctrl/shift/alt` here; `name=` in sdl; `key=262,
+   name='RIGHT'` in ray) and the per-frame events (`:draw` only here;
+   `:frame` and `:draw` in ray).
+5. **Children of image / pixmap / screenshot layers.** Rejected today
+   (C asserts at attach; Atmos raises an error). See
+   `260710-image-pixmap-target-bug.md`.
+6. **Binding functions as Atmos `func`s.** They are C `AFn`s because a
+   native literal could not fail; the compiler now supports it
+   (`st = a_error(..)`). Rewrite in the style of `lib/sdl.atm`, or keep.
+7. **Tests of the games with `test { }` blocks.** Reported to the
+   compiler session: needs `-t` through `pico-atmos`, and a way to
+   script a run (frames, input, screenshots) from inside the program.
+8. **Documentation site and releases of this repository.** The version
+   branches were deleted here; `c/README.md` (badge, versions, Doxygen)
+   still points to `fsantanna/pico-sdl`.
+9. **First window options.** With the implicit open, a hidden or
+   fullscreen window needs `pico.close()` + `pico.open [...]`, which
+   shows a default window first. A way to give the options before the
+   window exists (environment variable? a declaration read by the
+   runner?) is not designed.
+10. **File names in error messages** are absolute (the wrapper that
+    injects the include lives in a temporary directory). Short names
+    would need the wrapper written next to the program.
+11. **Storm: drops stretch from their top-left corner** (kept for an
+    identical picture after the move to centre anchors). Stretching
+    around the centre is simpler code and shifts drops by up to 3px.
+12. **Storm: the car has no screen limit** (holding Left/Right drives it
+    off screen for good). As in the port.
+13. **`'%'` crops surviving a resize.** Resizing a layer with live
+    sub-layers is rejected for every crop mode. An exception for `'%'`
+    crops (sub-layers reading through their source) was discussed and
+    not taken.
 
 ## B. Work that is known and not done
 
@@ -99,9 +64,8 @@ Last update: 2026-11-13.
    there ends without running its `defer` blocks. Needs a way to disable
    that exit alone. The reactive loop is not affected.
 2. **CI for Atmos**: the workflow builds `ia-atmos/lang` and runs
-   `tst/run.sh`, but no "Tests" run has ever started in this repository:
-   Actions on a fork stay disabled until enabled in the Actions tab.
-   First run to be checked once enabled.
+   `tst/run.sh`. Actions were enabled on 2026-11-13; the first run is to
+   be checked.
 3. **Binding: smaller defects noticed and not fixed**:
    - `PICO_ATM_KEYS`: malformed entries and unknown key names are
      ignored or emitted as they are; modifiers cannot be scripted; the
@@ -133,8 +97,19 @@ Last update: 2026-11-13.
 10. **C library: argument errors are `assert`s** (bad Y4M header,
     `IMG_SavePNG` into a missing directory, invalid dim/tile modes, ...).
     The binding pre-checks the ones it can see.
-11. **A freed child stays visible** in its parent's texture until the
-    parent is cleared (children are composited into the parent).
+11. **A freed or cleared child stays visible** in its parent's texture
+    until the parent is cleared (children are composited into the
+    parent; outside expert mode every clear presents).
+14. **Window resize with a live sub-layer of the window**: a real resize
+    event (or a fullscreen toggle) resizes the window layer inside
+    `pico_input_event` and now hits the C assert "cannot resize a layer
+    with live sub-layers"; the binding cannot turn that into an error.
+15. **`pico.atm` prelude formatting**: after the rename to
+    `_pico_atmos_`, 155 lines are over 80 columns and the macro
+    backslashes are misaligned.
+16. **Programs cannot run code before the window exists** (implicit
+    open): a `setenv` in the program for a variable read at `pico_open`
+    is too late.
 12. **`.claude/plans/`** still describes realms, keys and push/pop
     (historical; nothing was updated).
 13. **Release**: `HISTORY.md` has the `v0.8` entry open; version strings
@@ -148,10 +123,12 @@ Changes made on judgement during the port, reported once, with no answer.
    attached child whose value is dropped is freed and disappears; a
    parent, a sub-layer source, the current layer and a pencil's font are
    kept alive by what depends on them.
-2. **Programs call `pico.open()` explicitly** (the old environment
-   opened pico on `require`).
-3. **Explicit `pico.layer.free` / `pico.font.free` / `pico.sound.free`
-   of something in use raises an error.**
+2. **`pico.set.scene [dim=..]` with live sub-layers is an error even
+   when the size does not change** (the C code replaces the texture
+   anyway).
+3. **`'default'` can never be a font path** (`font=:default` is that
+   string; use `'./default'`); `pico.get.pencil().font` is `nil` for the
+   built-in font.
 4. **`pico.xin.*` is `pico.in.*`**; `pico.get.expert()` was added.
 5. **`pico.get.video(layer)` / `pico_get_video_path`** naming.
 6. **Tests changed in form**:
@@ -170,9 +147,9 @@ Changes made on judgement during the port, reported once, with no answer.
    a temporary table argument cannot hold a pinned value
    (`pin l = ..; f [up=l]`).
 10. **Storm rework**: drop-vs-drop and drop-vs-car collisions run once
-    per frame, with a native C filter of near pairs inside `ts.atm`; a
-    drop may travel up to one frame further before reacting. Boom pushes
-    stay per clock piece.
+    per frame, with a grid in plain Atmos filtering near pairs; a drop
+    may travel up to one frame further before reacting. Boom pushes stay
+    per clock piece.
 11. **`PICO_ROOT`** is exported by `pico-atmos`; `$name` inside a
     `:prelude` block is Atmos interpolation, even in a C comment.
 12. **Runtime behaviour to keep in mind**: `loop us on :clock` wakes at
