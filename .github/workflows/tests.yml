@@ -17,9 +17,20 @@ jobs:
         sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev xvfb valgrind
     - name: Run C tests
       run: make -C c tests
+    - name: Checkout Atmos compiler
+      uses: actions/checkout@v3
+      with:
+        repository: ia-atmos/lang
+        path: lang
+    - name: Build Atmos compiler
+      run: make -C lang
+    - name: Run Atmos tests
+      run: ATMOS=$PWD/lang/atmos tst/run.sh
     - name: Upload test screenshots on failure
       if: failure()
       uses: actions/upload-artifact@v4
       with:
         name: test-screenshots
-        path: c/tst/out/*.png
+        path: |
+          c/tst/out/*.png
+          c/tst/out/*.log
