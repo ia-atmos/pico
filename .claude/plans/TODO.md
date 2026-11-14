@@ -4,7 +4,7 @@ Everything that is pending: asked and not decided, reported and not
 acknowledged, or known and not done. Keep it current: remove an item
 when it is settled, add one whenever something is left open.
 
-Last update: 2026-11-13 (after the second batch of binding changes).
+Last update: 2026-11-13 (after the third batch: font=true, guide 5.1, atmos-pico).
 
 ## A. Decisions waiting for an answer
 
@@ -46,9 +46,23 @@ Last update: 2026-11-13 (after the second batch of binding changes).
 10. **File names in error messages** are absolute (the wrapper that
     injects the include lives in a temporary directory). Short names
     would need the wrapper written next to the program.
-11. **Storm: drops stretch from their top-left corner** (kept for an
-    identical picture after the move to centre anchors). Stretching
-    around the centre is simpler code and shifts drops by up to 3px.
+11. **Dedicated executable per environment** (`atmos-pico`,
+    `atmos-iup`, ...): wanted by the author; examples and docs use it,
+    and the environments keep working through `include`. Today
+    `atmos-pico` is a shell script (wrapper program + compiler flags).
+    A real executable generated from the compiler needs support in
+    `ia-atmos/lang` (reported to the compiler session). Note: any form
+    still needs a C compiler and the SDL development libraries on the
+    user's machine, since `atmos` compiles to C and calls `cc`.
+14. **Implicit open: confirm.** `main` opens the window before the
+    program; the author asked whether this had been vetoed. Waiting.
+15. **`pico.layer.world` / `.window` as values** instead of functions
+    (possible: they would be fields refreshed at each open). Waiting.
+16. **Relaxing the games for expressiveness** (author's rule for every
+    port, relayed by the compiler session): once a game is faithful to
+    its original, exactness-only code may go, as long as the original
+    intent stays. An option for `exs/` (birds, rocks, storm); mark the
+    faithful version first, one small commit per relaxation.
 12. **Storm: the car has no screen limit** (holding Left/Right drives it
     off screen for good). As in the port.
 13. **`'%'` crops surviving a resize.** Resizing a layer with live
@@ -63,9 +77,11 @@ Last update: 2026-11-13 (after the second batch of binding changes).
    `pico_input_event` (`c/src/input.c`), so an Atmos program blocked
    there ends without running its `defer` blocks. Needs a way to disable
    that exit alone. The reactive loop is not affected.
-2. **CI for Atmos**: the workflow builds `ia-atmos/lang` and runs
-   `tst/run.sh`. Actions were enabled on 2026-11-13; the first run is to
-   be checked.
+2. **CI**: the first run (on `ubuntu-latest`) failed in the C test
+   `text-sizes` (abort; cause not read from the log: the runner has
+   SDL 2.32 "sdl2-classic", newer than the one the reference images
+   were made with). The workflow is pinned to `ubuntu-24.04`; result to
+   be checked. If it passes, `ubuntu-latest` remains a known failure.
 3. **Binding: smaller defects noticed and not fixed**:
    - `PICO_ATM_KEYS`: malformed entries and unknown key names are
      ignored or emitted as they are; modifiers cannot be scripted; the
