@@ -43,17 +43,13 @@ Last update: 2026-11-13 (after the third batch: font=true, guide 5.1, atmos-pico
    shows a default window first. A way to give the options before the
    window exists (environment variable? a declaration read by the
    runner?) is not designed.
-10. **File names in error messages** are absolute (the wrapper that
-    injects the include lives in a temporary directory). Short names
-    would need the wrapper written next to the program.
-11. **Dedicated executable per environment** (`atmos-pico`,
-    `atmos-iup`, ...): wanted by the author; examples and docs use it,
-    and the environments keep working through `include`. Today
-    `atmos-pico` is a shell script (wrapper program + compiler flags).
-    A real executable generated from the compiler needs support in
-    `ia-atmos/lang` (reported to the compiler session). Note: any form
-    still needs a C compiler and the SDL development libraries on the
-    user's machine, since `atmos` compiles to C and calls `cc`.
+10. **Programs no longer run from their own directory automatically**
+    (the old script did a `cd`): run them from there, as the READMEs say.
+11. **Self-contained download.** `atmos-pico` is now a real executable
+    (`make ATMOS=/path/to/lang`, through `make env` of the compiler),
+    but it still needs the compiler's checkout (runtime), a C compiler
+    and the SDL development packages on the user's machine. A download
+    that needs none of them is open (also on the compiler's list).
 14. **Implicit open: confirm.** `main` opens the window before the
     program; the author asked whether this had been vetoed. Waiting.
 15. **`pico.layer.world` / `.window` as values** instead of functions

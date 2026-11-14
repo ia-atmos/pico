@@ -27,8 +27,8 @@ This guide is a walk-through of `atmos-pico`.
 It is not meant to be exhaustive.
 Consult the [API](api.md) for completeness.
 
-Atmos has no interactive prompt: a program is a file, which the script
-[`atmos-pico`](../atmos-pico) builds and runs.
+Atmos has no interactive prompt: a program is a file, which `atmos-pico`
+builds and runs.
 Save the next program as `hello.atm` in this directory (`doc/`):
 
 ```
@@ -42,14 +42,13 @@ Then, from the command line, execute `atmos-pico` with the file:
 $ ../atmos-pico hello.atm
 ```
 
-The script requires the Atmos compiler, either as `atmos` in the `PATH`, or as
-set in the environment variable `ATMOS`.
+`atmos-pico` is the Atmos compiler dedicated to pico, built with `make` at
+the root of the repository (see the [README](../README.md)).
 
 A program does not include the binding ([`pico.atm`](../pico.atm)), nor opens
-the window: the script makes the table `pico` available, and the program
+the window: `atmos-pico` makes the table `pico` available, and the program
 starts with a window already open.
-A program runs from its own directory, and terminates with its last line,
-which also closes the window.
+A program terminates with its last line, which also closes the window.
 For this reason, the example ends with a call to `pico.input.loop`, which waits
 until we close the window.
 

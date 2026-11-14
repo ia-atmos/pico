@@ -1,4 +1,4 @@
-;; `pico.check` does not depend on the current directory: `atmos-pico`
+;; `pico.check` does not depend on the current directory: `tst/run.sh`
 ;; exports PICO_ROOT, the absolute root of the repository, and the files are
 ;; `$PICO_ROOT/c/tst/out/<name>.png` and `$PICO_ROOT/c/tst/asr/<name>.png`.
 

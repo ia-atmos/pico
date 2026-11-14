@@ -17,3 +17,6 @@ c/doc/html/
 
 c/tst/out/*
 !c/tst/out/.gitkeep
+
+/atmos-pico
+/lang/

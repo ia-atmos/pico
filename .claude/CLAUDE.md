@@ -28,8 +28,12 @@ gcc /path/to/program.c -I c/src -L c/src -lpico-sdl \
 
 The binding is `pico.atm`; the compiler is https://github.com/ia-atmos/lang.
 
+`atmos-pico` is the compiler dedicated to pico, built by the root `Makefile`
+from a checkout of the compiler (it is not versioned):
+
 ```bash
-ATMOS=/path/to/atmos ./atmos-pico path/to/program.atm
+make ATMOS=/path/to/lang                # builds ./atmos-pico
+cd dir/of/program && /path/to/atmos-pico program.atm
 ```
 
 ## Tests
@@ -38,7 +42,7 @@ ATMOS=/path/to/atmos ./atmos-pico path/to/program.atm
 
 ```bash
 cd c/ && make tests                     # C library
-ATMOS=/path/to/atmos tst/run.sh [name]  # Atmos binding (tst/*.atm)
+tst/run.sh [name]                       # Atmos binding (tst/*.atm)
 ```
 
 ### Visual Regression

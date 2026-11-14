@@ -10,7 +10,7 @@ A 2D graphics library for [Atmos][atmos], built on [pico-sdl](c/).
   binding.
 - [`doc/guide.md`](doc/guide.md): a tutorial;
   [`doc/api.md`](doc/api.md): the reference.
-- [`tst/`](tst/): tests of the binding (`ATMOS=/path/to/atmos tst/run.sh`).
+- [`tst/`](tst/): tests of the binding (`make tests`).
 - [`c/`](c/): the C library (`pico-sdl`), with its tests and documentation.
 - Games:
     - [`exs/birds/`](exs/birds/): a tutorial in 11 steps
@@ -23,8 +23,17 @@ A 2D graphics library for [Atmos][atmos], built on [pico-sdl](c/).
 
 ```
 sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev
-ATMOS=/path/to/atmos ./atmos-pico tst/env.atm
+git clone https://github.com/ia-atmos/lang
+make -C lang
+make ATMOS=lang             # builds ./atmos-pico
+cd exs/birds/
+../../atmos-pico birds-11.atm
 ```
+
+`atmos-pico` is the Atmos compiler dedicated to pico: a program is only its
+own code, with no `include` and with the window already open.
+It keeps depending on the checkout of the compiler, on a C compiler, and on
+the SDL2 packages above.
 
 ```
 spawn {

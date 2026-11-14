@@ -1,13 +1,13 @@
 ;; pico.atm: the Atmos binding and environment for pico-sdl.
 ;;
-;;      atmos-pico game.atm         ;; builds and runs (see the script)
+;;      atmos-pico game.atm         ;; builds and runs
 ;;
-;; A program does not include this file: the script compiles a wrapper that
-;; includes the binding and then the program, such that the table `pico` is
-;; available from its first line. (An `include` of this file in the program
-;; is harmless: a file is only included once.) The program runs from its own
-;; directory, and the messages of the compiler and the traces of errors name
-;; its file, with the absolute path.
+;; `atmos-pico` is the Atmos compiler dedicated to pico (see the Makefile):
+;; it includes this file before the program, such that the table `pico` is
+;; available from its first line, and links the C library. A program may
+;; also include this file itself and use the plain compiler, with the flags
+;; of the Makefile in ATMOS_CFLAGS and ATMOS_LDFLAGS (an `include` under
+;; `atmos-pico` is harmless: a file is only included once).
 ;;
 ;; A program starts with pico open, with the default window: `main` opens it
 ;; before the main chunk runs, and closes it when the program terminates.
@@ -170,7 +170,7 @@
 ;; `pico.check(name)` and `pico.equal(a,b)` are the helpers of the visual
 ;; tests (PICO_CHECK_INT, PICO_CHECK_ASR). `pico.check` uses the directories
 ;; `c/tst/out` and `c/tst/asr` under PICO_ROOT, the absolute root of pico,
-;; which the script `atmos-pico` exports. If the variable is not set, they are
+;; which `tst/run.sh` exports. If the variable is not set, they are
 ;; `../c/tst/out` and `../c/tst/asr`, relative to the current directory.
 
 ```:prelude
@@ -2255,7 +2255,7 @@ static int _pico_atmos_same (const char* path1, const char* path2) {
 
 // pico.check(name): saves the window to `<tst>/out/<name>.png`, and
 // compares it with `<tst>/asr/<name>.png` if PICO_CHECK_ASR is set.
-// `<tst>` is `<PICO_ROOT>/c/tst` (`atmos-pico` sets PICO_ROOT to the root
+// `<tst>` is `<PICO_ROOT>/c/tst` (`tst/run.sh` sets PICO_ROOT to the root
 // of the repository), or `../c/tst` if the variable is not set.
 static AStatus _pico_atmos_l_check (AFunc* self, int argc, AVal* argv) {
     _PICO_ATMOS_IN("check")

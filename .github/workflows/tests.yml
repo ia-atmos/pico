@@ -24,8 +24,10 @@ jobs:
         path: lang
     - name: Build Atmos compiler
       run: make -C lang
+    - name: Build atmos-pico
+      run: make ATMOS=$PWD/lang
     - name: Run Atmos tests
-      run: ATMOS=$PWD/lang/atmos tst/run.sh
+      run: tst/run.sh
     - name: Upload test screenshots on failure
       if: failure()
       uses: actions/upload-artifact@v4

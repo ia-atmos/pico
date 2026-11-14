@@ -1,25 +1,24 @@
 # API: atmos-pico
 
 The binding is the file [`pico.atm`](../pico.atm).
-A program runs with the script [`atmos-pico`](../atmos-pico), which requires
-the [Atmos](https://github.com/ia-atmos/lang) compiler (`atmos` in the `PATH`,
-or as set in the environment variable `ATMOS`):
+A program runs with `atmos-pico`, the [Atmos](https://github.com/ia-atmos/lang)
+compiler dedicated to pico, built with `make` at the root of the repository
+(see the [README](../README.md)):
 
 ```
 $ atmos-pico file.atm
 ```
 
-- The program does not include the binding: the script compiles it after
+- The program does not include the binding: `atmos-pico` compiles it after
   `pico.atm`, such that the table `pico` is available from its first line.
   (An `include` of `pico.atm` in the program is harmless: a file is only
   included once.)
 - The program starts with pico already open, with the default window: there
   is no initial call to `pico.open`.
-- The program runs from its own directory, such that its relative paths
-  (images, sounds, and its own `include`s) are relative to the file.
-- The messages of the compiler and the traces of errors name the file of the
-  program with its absolute path, as in `/x/y/file.atm : line 3 : ...` and
-  `/x/y/file.atm:3 (call)`.
+- The relative paths that a program uses at run time (images, sounds) are
+  relative to the current directory: run a program from its own directory.
+- The plain compiler also works, if the program includes `pico.atm` itself
+  and the flags of the `Makefile` go in `ATMOS_CFLAGS` and `ATMOS_LDFLAGS`.
 
 Everything lives in the single table `pico`.
 All operations, except `pico.open`, `pico.color.*`, and `pico.equal`, raise the
@@ -760,9 +759,9 @@ The next operations are the helpers of the visual tests of the binding
 - **pico.check**: Saves the window to `$PICO_ROOT/c/tst/out/<name>.png`.
     - `pico.check (name: string)`
     - `PICO_ROOT` is the absolute root of the repository, which the script
-      `atmos-pico` exports to the program, such that the call works from any
+      `tst/run.sh` exports to the program, such that the call works from any
       directory.
-      If the variable is not set (the program runs without the script), the
+      If the variable is not set (the program runs without `tst/run.sh`), the
       directories are `../c/tst/out` and `../c/tst/asr`, relative to the
       current directory.
     - If the environment variable `PICO_CHECK_INT` is set, waits for a key

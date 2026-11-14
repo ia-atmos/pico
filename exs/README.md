@@ -13,12 +13,12 @@ sounds with relative paths:
 
 ```
 cd birds/
-ATMOS=/path/to/atmos ../../atmos-pico birds-11.atm
+../../atmos-pico birds-11.atm
 ```
 
-`ATMOS` is the compiler, built from <https://github.com/ia-atmos/lang>
-(it may be omitted if `atmos` is in the `PATH`).
-The SDL2 packages listed in the [main README](../README.md) are required.
+`atmos-pico` is the compiler dedicated to pico, built with `make` at the root
+of the repository (see the [main README](../README.md), which also lists the
+SDL2 packages required).
 
 A game does not include the binding nor opens the window: `atmos-pico`
 makes the table `pico` available, and the program starts with the window

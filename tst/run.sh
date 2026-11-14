@@ -1,13 +1,26 @@
 #!/bin/sh
 # Runs the tests of the Atmos binding, headless.
 #
-#   ATMOS=/path/to/atmos tst/run.sh [name ...]
+#   tst/run.sh [name ...]
 #
 # With no names, runs every tst/*.atm, one at a time (some tests share
-# output files). Requires xvfb-run. Set ATMOS_ASAN=1 to run under the
-# address sanitizer.
+# output files). Requires `../atmos-pico` (see the Makefile at the root)
+# and xvfb-run. Set ATMOS_ASAN=1 to run under the address sanitizer.
 
 cd "$(dirname "$(realpath "$0")")" || exit 1
+
+if [ ! -x ../atmos-pico ]; then
+    echo "tst/run.sh : ../atmos-pico not found : run make ATMOS=/path/to/lang" >&2
+    exit 1
+fi
+
+# the root of the repository, for `pico.check` (c/tst/out, c/tst/asr)
+export PICO_ROOT="$(dirname "$PWD")"
+
+# ATMOS_ASAN=1: ignores the leaks of the libraries under SDL
+if [ -n "$ATMOS_ASAN" ] && [ -z "$LSAN_OPTIONS" ]; then
+    export LSAN_OPTIONS="suppressions=$PWD/lsan.supp:print_suppressions=0"
+fi
 
 if [ $# -eq 0 ]; then
     set -- $(ls *.atm | sed 's/\.atm$//')

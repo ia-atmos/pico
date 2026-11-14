@@ -7,8 +7,9 @@ Layout:
 - `pico.atm`: binding for Atmos, replaces the Lua binding (`lua/`)
     - layers, fonts, sounds are values released by their last
       reference (no keys, no explicit free)
-    - `atmos-pico file.atm`: includes the binding and opens the window
-      before the program runs (`pico.open` only reopens after
+    - `atmos-pico file.atm`: the compiler dedicated to pico (built by
+      the root `Makefile`), which includes the binding; the window is
+      open before the program runs (`pico.open` only reopens after
       `pico.close`)
     - reactive programs run inside the loop of pico, which emits the
       time, `:draw`, and input events (`:key.dn`, `:mouse.button.dn`, ...)
