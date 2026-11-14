@@ -180,8 +180,6 @@ pico.check("guide-05-01-01")
 
 ;; §5.1.b: source crop (w=h=0.5) -> 2x zoom in
 pico.set.window [ title="guide-05-01-02" ]
-pico.output.draw.image('../c/res/open.png',
-    ['%', x=0.5, y=0.5, w=0.5, h=0.5])
 pico.set.scene [ source = ['%', x=0.5, y=0.5, w=0.5, h=0.5] ]
 pico.check("guide-05-01-02")
 

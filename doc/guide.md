@@ -314,12 +314,12 @@ Note that `pico-atmos` preserves the correct text aspect ratio when we omit the
 width `w`.
 
 The field `font` also accepts a font loaded with `pico.font.load(path)`, or
-the tag `:default` to switch back to the built-in font:
+`true` to switch back to the built-in font:
 
 ```
 val font = pico.font.load('../c/res/DejaVuSans.ttf')
 pico.set.pencil [ font=font ]       ;; same effect as the path
-pico.set.pencil [ font=:default ]   ;; back to the built-in font
+pico.set.pencil [ font=true ]       ;; back to the built-in font
 ```
 
 To draw an [image](../c/res/open.png), we call `pico.output.draw.image`:
@@ -572,8 +572,6 @@ Next, we crop the view in half (`w=h=0.5`) to get a `2x` zoom in:
 
 <table>
 <tr><td><pre>
-pico.output.draw.image('../c/res/open.png',
-    ['%', x=0.5, y=0.5, w=0.5, h=0.5])
 pico.set.scene [
     source = ['%', x=0.5, y=0.5, w=0.5, h=0.5],
 ]
