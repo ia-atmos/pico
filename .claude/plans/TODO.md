@@ -73,11 +73,12 @@ Last update: 2026-11-13 (after the third batch: font=true, guide 5.1, atmos-pico
    `pico_input_event` (`c/src/input.c`), so an Atmos program blocked
    there ends without running its `defer` blocks. Needs a way to disable
    that exit alone. The reactive loop is not affected.
-2. **CI**: the first run (on `ubuntu-latest`) failed in the C test
-   `text-sizes` (abort; cause not read from the log: the runner has
-   SDL 2.32 "sdl2-classic", newer than the one the reference images
-   were made with). The workflow is pinned to `ubuntu-24.04`; result to
-   be checked. If it passes, `ubuntu-latest` remains a known failure.
+2. **CI on `ubuntu-latest`**: the workflow is pinned to `ubuntu-24.04`,
+   where both the C suite and the Atmos suite (with `atmos-pico` built
+   in the job) pass. On `ubuntu-latest` the C test `text-sizes` aborts
+   (the runner has SDL 2.32 "sdl2-classic"; the exact assertion was not
+   read from the log). A run takes about 45 minutes, nearly all of it
+   the C suite under valgrind.
 3. **Binding: smaller defects noticed and not fixed**:
    - `PICO_ATM_KEYS`: malformed entries and unknown key names are
      ignored or emitted as they are; modifiers cannot be scripted; the
