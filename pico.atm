@@ -46,9 +46,8 @@
 ;; both are given.
 ;;
 ;; The field `font` of `pico.set.pencil` is a font, the path of a TTF file,
-;; or the tag `:default` for the built-in font (the string 'default', which
-;; therefore is never a path: use './default' for such a file). The built-in
-;; font comes back as `nil` in `pico.get.pencil().font`.
+;; or `true` for the built-in font. The built-in font comes back as `nil` in
+;; `pico.get.pencil().font`.
 ;;
 ;; `pico.get.keyboard()` polls the modifiers only: its `key` is always the
 ;; empty string (the key itself only comes in the events `:key.dn`/`:key.up`).
@@ -1523,15 +1522,15 @@ static AStatus _pico_atmos_l_set_pencil (AFunc* self, int argc, AVal* argv) {
     if (color.type != A_NIL) {
         _PICO_ATMOS_TRY(_pico_atmos_color(color, &xcolor));
     }
-    int dfont = (font.type==A_STR && !strcmp(A_STR_OF(font)->s,"default"));
+    int dfont = (font.type==A_BOOL && a_truthy(font));
     if (dfont) {
-        // :default, the built-in font
+        // true, the built-in font
     } else if (font.type == A_STR) {
         _PICO_ATMOS_TRY(_pico_atmos_file(A_STR_OF(font)->s));
     } else if (font.type == A_NAT) {
         _PICO_ATMOS_TRY(_pico_atmos_res(font, _PICO_ATMOS_KIND_FNT, &xfont));
     } else if (font.type != A_NIL) {
-        return a_error("%s : invalid font : expected font, path, or :default",
+        return a_error("%s : invalid font : expected font, path, or true",
             _PICO_ATMOS_FN);
     }
     if (style.type != A_NIL) {
@@ -2558,7 +2557,7 @@ val pico = [
         expert = `:value a_func(_pico_atmos_l_set_expert, 0)`,  ;; (on [, fps]) -> ms of a frame
         layer  = `:value a_func(_pico_atmos_l_set_layer,  0)`,  ;; (layer) -> the previous one
         mouse  = `:value a_func(_pico_atmos_l_set_mouse,  0)`,  ;; ([layer,] pos)
-        ;; font: a font, a path, or :default (the built-in font)
+        ;; font: a font, a path, or true (the built-in font)
         pencil = `:value a_func(_pico_atmos_l_set_pencil, 0)`,  ;; [color=, font=, style='fill'|'stroke']
         scene  = `:value a_func(_pico_atmos_l_set_scene,  0)`,  ;; [dim=, tile=, target=, source=, clip=, clear=]
         video  = `:value a_func(_pico_atmos_l_set_video,  0)`,  ;; (layer, frame) -> boolean

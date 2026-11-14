@@ -560,15 +560,13 @@ In alphabetical order:
         ```
         pico.set.pencil [
             color:  Color,              -- drawing color
-            font:   Font|string|:default, -- font, TTF path, or :default (built-in)
+            font:   Font|string|true,   -- font, TTF path, or true (built-in)
             style:  'fill'|'stroke',    -- shape drawing style
         ]
         ```
         - The pencil belongs to the current layer.
-        - `font=:default` selects the built-in font. A tag is a string at run
-          time, such that the string `'default'` is never taken as a path
-          (use `'./default'` for a file with that name). Any other type, such
-          as `false`, is an error.
+        - `font=true` selects the built-in font. Any other type, such as
+          `false`, is an error.
     - **pico.set.scene**: Sets scene configuration.
         ```
         pico.set.scene [

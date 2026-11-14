@@ -13,7 +13,7 @@ Layout:
     - reactive programs run inside the loop of pico, which emits the
       time, `:draw`, and input events (`:key.dn`, `:mouse.button.dn`, ...)
     - the clear of each frame applies to the world
-    - `pico.set.pencil [font=:default]`: built-in font
+    - `pico.set.pencil [font=true]`: built-in font (was `false`)
     - `pico.in.*` (was `pico.xin.*`)
     - headless runs: `PICO_ATM_FRAMES`, `PICO_ATM_KEYS`,
       `PICO_ATM_MOUSE`, `PICO_ATM_SHOT`
