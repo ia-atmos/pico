@@ -262,23 +262,19 @@ task Drop (cloud_phy, G) {
 
     par :any {
         loop on :clock {
-            ;; top-left corner
-            val x1 = phy.x.pst - (phy.x.len / 2)
-            var y1 = phy.y.pst - (phy.y.len / 2)
-
             ;; bounce off ground
-            if y1 > (G.H - DROPS_LEN) {
-                set y1 = G.H - DROPS_LEN
+            if phy.y.pst > (G.H - (DROPS_LEN / 2)) {
+                set phy.y.pst = G.H - (DROPS_LEN / 2)
                 set phy.y.vel = -(phy.y.vel * 2 / 3)
                 set pub.has_collided = true
             }
 
             ;; out of bounds
-            if (x1 > G.W) || (x1 < 0) || (y1 < 0) {
+            if (phy.x.pst > G.W) || (phy.x.pst < 0) || (phy.y.pst < 0) {
                 break
             }
 
-            ;; stretch based on velocity
+            ;; stretch based on velocity, around the centre
             val abs_vx = math.abs(phy.x.vel)
             val abs_vy = math.abs(phy.y.vel)
             if abs_vx > abs_vy {
@@ -301,10 +297,6 @@ task Drop (cloud_phy, G) {
             if phy.y.len > tmax {
                 set phy.y.len = tmax
             }
-
-            ;; stretches from the top-left corner
-            set phy.x.pst = x1 + (phy.x.len / 2)
-            set phy.y.pst = y1 + (phy.y.len / 2)
         }
     } with {
         ;; decay: wait for ground hit, then fade out
