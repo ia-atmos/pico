@@ -6,7 +6,7 @@ A 2D graphics library for [Atmos][atmos], built on [pico-sdl](c/).
 
 - [`pico.atm`](pico.atm): the Atmos binding and environment (its header
   documents the API).
-- [`pico-atmos`](pico-atmos): builds and runs an Atmos program with the
+- [`atmos-pico`](atmos-pico): builds and runs an Atmos program with the
   binding.
 - [`doc/guide.md`](doc/guide.md): a tutorial;
   [`doc/api.md`](doc/api.md): the reference.
@@ -23,7 +23,7 @@ A 2D graphics library for [Atmos][atmos], built on [pico-sdl](c/).
 
 ```
 sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev
-ATMOS=/path/to/atmos ./pico-atmos tst/env.atm
+ATMOS=/path/to/atmos ./atmos-pico tst/env.atm
 ```
 
 ```

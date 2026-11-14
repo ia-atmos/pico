@@ -17,7 +17,7 @@ mkdir -p ../c/tst/out
 fail=0
 for t in "$@"; do
     if PICO_TESTS=1 PICO_CHECK_INT= PICO_CHECK_ASR=1 SDL_AUDIODRIVER=dummy \
-        xvfb-run -a ../pico-atmos "$t.atm" > "../c/tst/out/$t.log" 2>&1
+        xvfb-run -a ../atmos-pico "$t.atm" > "../c/tst/out/$t.log" 2>&1
     then
         echo "OK   $t"
     else

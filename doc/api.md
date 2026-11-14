@@ -1,12 +1,12 @@
-# API: pico-atmos
+# API: atmos-pico
 
 The binding is the file [`pico.atm`](../pico.atm).
-A program runs with the script [`pico-atmos`](../pico-atmos), which requires
+A program runs with the script [`atmos-pico`](../atmos-pico), which requires
 the [Atmos](https://github.com/ia-atmos/lang) compiler (`atmos` in the `PATH`,
 or as set in the environment variable `ATMOS`):
 
 ```
-$ pico-atmos file.atm
+$ atmos-pico file.atm
 ```
 
 - The program does not include the binding: the script compiles it after
@@ -733,7 +733,7 @@ at frame 7, and saves the window at frame 8:
 ```
 $ PICO_ATM_FRAMES=12:20 PICO_ATM_KEYS=4:dn:A,6:up:A \
     PICO_ATM_MOUSE=7:dn:250:100,7:up:250:100 PICO_ATM_SHOT=8:out.png \
-    pico-atmos game.atm
+    atmos-pico game.atm
 ```
 
 - With `PICO_ATM_FRAMES=n:0`, the frames are the real ones, which wait as the
@@ -760,7 +760,7 @@ The next operations are the helpers of the visual tests of the binding
 - **pico.check**: Saves the window to `$PICO_ROOT/c/tst/out/<name>.png`.
     - `pico.check (name: string)`
     - `PICO_ROOT` is the absolute root of the repository, which the script
-      `pico-atmos` exports to the program, such that the call works from any
+      `atmos-pico` exports to the program, such that the call works from any
       directory.
       If the variable is not set (the program runs without the script), the
       directories are `../c/tst/out` and `../c/tst/asr`, relative to the

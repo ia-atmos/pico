@@ -2,7 +2,7 @@
 ;; Two characters walk along rectangular paths, in opposite directions and at
 ;; different speeds (guide.md, section 8.3).
 ;;
-;;      pico-atmos anims.atm
+;;      atmos-pico anims.atm
 
 pico.set.expert(true, 20)
 pico.set.pencil [ style='stroke' ]

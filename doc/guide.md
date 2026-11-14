@@ -13,7 +13,7 @@
 
 ## 1. Introduction
 
-`pico-atmos` is a graphics library for 2D games and applications, written for
+`atmos-pico` is a graphics library for 2D games and applications, written for
 the programming language [Atmos](https://github.com/ia-atmos/lang).
 It is designed around 4 groups of APIs:
 
@@ -23,12 +23,12 @@ It is designed around 4 groups of APIs:
     such as current drawing color, and window dimensions.
 - `pico.layer.*`: structure graphics in hierarchical scenes.
 
-This guide is a walk-through of `pico-atmos`.
+This guide is a walk-through of `atmos-pico`.
 It is not meant to be exhaustive.
 Consult the [API](api.md) for completeness.
 
 Atmos has no interactive prompt: a program is a file, which the script
-[`pico-atmos`](../pico-atmos) builds and runs.
+[`atmos-pico`](../atmos-pico) builds and runs.
 Save the next program as `hello.atm` in this directory (`doc/`):
 
 ```
@@ -36,10 +36,10 @@ pico.output.draw.rect [ '%', x=0.5, y=0.5, w=0.5, h=0.5 ]
 pico.input.loop()           ;; keeps the window until it is closed
 ```
 
-Then, from the command line, execute `pico-atmos` with the file:
+Then, from the command line, execute `atmos-pico` with the file:
 
 ```bash
-$ ../pico-atmos hello.atm
+$ ../atmos-pico hello.atm
 ```
 
 The script requires the Atmos compiler, either as `atmos` in the `PATH`, or as
@@ -58,7 +58,7 @@ In the rest of this guide, we only show the lines in between:
 - The examples assume a program in this directory, such that the files in
   `../c/res/` are found.
 - The examples continue each other: the state of an example carries over to the
-  next one, until an example restarts `pico-atmos`.
+  next one, until an example restarts `atmos-pico`.
 - To follow the examples step by step, you may insert a
   `pico.input.event('key.dn')` after a step, which waits for a key press.
 
@@ -72,7 +72,7 @@ The manual of Atmos lists all
 
 ### 2.1. Open
 
-A program starts with `pico-atmos` initialized and its window open, with no
+A program starts with `atmos-pico` initialized and its window open, with no
 call required:
 
 <table>
@@ -87,10 +87,10 @@ call required:
 We immediately see a window of `100x100` **logical pixels**, built on top of
 `500x500` **physical pixels** divided in small `5x5` rectangles.
 
-In the context of `pico-atmos`, we use the term **world** to designate the
+In the context of `atmos-pico`, we use the term **world** to designate the
 logical layer, and **window** for the physical layer.
 
-By default, note that `pico-atmos` conventionally exhibits the grid and
+By default, note that `atmos-pico` conventionally exhibits the grid and
 coordinate labels to aid development with visual inspection.
 You may click the image to zoom in.
 
@@ -141,7 +141,7 @@ pico.set.dim [ '!', w=200, h=200 ]
 ### 2.3. Close
 
 In the end of the session, we should call `pico.close` to properly finalize
-`pico-atmos`:
+`atmos-pico`:
 
 <table>
 <tr><td><pre>
@@ -152,10 +152,10 @@ pico.close()
 </td></tr>
 </table>
 
-If the program terminates with `pico-atmos` still open, then it is closed
+If the program terminates with `atmos-pico` still open, then it is closed
 automatically.
 
-Then, we can restart `pico-atmos` by calling `pico.open`, which is only valid
+Then, we can restart `atmos-pico` by calling `pico.open`, which is only valid
 after a `pico.close`:
 
 <table>
@@ -171,7 +171,7 @@ We can see that grid and dimensions are now reset to default.
 
 ## 3. Basic Drawing
 
-To ease prototyping, drawing operations in `pico-atmos` take immediate effect.
+To ease prototyping, drawing operations in `atmos-pico` take immediate effect.
 
 ### 3.1. Shapes
 
@@ -205,11 +205,11 @@ The table specifies a rectangle at position `(20,20)` with size `30x30`.
 With the aid of the tick marks, we can see that the rectangle is actually
 **centered** at the given position.
 
-Unlike most graphics libraries, by default `pico-atmos` anchors an object at
+Unlike most graphics libraries, by default `atmos-pico` anchors an object at
 its center.
 We discuss [#Anchors](#4-positioning-modes--anchors) further.
 
-Note that `pico-atmos` retains both shapes on the screen, i.e., drawing
+Note that `atmos-pico` retains both shapes on the screen, i.e., drawing
 operations are cumulative.
 
 Other drawing operations include `pico.output.draw.line`,
@@ -230,7 +230,7 @@ pico.output.clear()
 
 Now the pixel and rectangle are gone.
 
-By default, `pico-atmos` uses black to clear the screen and white to draw
+By default, `atmos-pico` uses black to clear the screen and white to draw
 shapes.
 
 To pick different colors, we use `pico.set.effect` and `pico.set.pencil`
@@ -278,7 +278,7 @@ state, and visibility, as in `pico.open [ title="Hello", show=false ]`.
 This is how a program creates its window hidden or in fullscreen: it closes
 the initial window and opens another.
 
-Let's restart `pico-atmos` for the next examples:
+Let's restart `atmos-pico` for the next examples:
 
 <table>
 <tr><td><pre>
@@ -310,7 +310,7 @@ pico.output.draw.text("Hello", ['!', x=50, y=66, h=30])
 We first draw `Hello` at the top using the default built-in font.
 Then, we switch to a new font and draw `Hello` again at the bottom.
 
-Note that `pico-atmos` preserves the correct text aspect ratio when we omit the
+Note that `atmos-pico` preserves the correct text aspect ratio when we omit the
 width `w`.
 
 The field `font` also accepts a font loaded with `pico.font.load(path)`, or
@@ -339,7 +339,7 @@ pico.output.draw.image('../c/res/open.png', ['!', x=50, y=50])
 For images, we can omit both width `w` and height `h` to preserve original
 dimensions and aspect ratio.
 
-`pico-atmos` also supports pixmaps, which are custom arrays of colored pixels:
+`atmos-pico` also supports pixmaps, which are custom arrays of colored pixels:
 
 <table>
 <tr><td><pre>
@@ -375,13 +375,13 @@ Note that a pixmap takes two steps: `pico.layer.pixmap` creates a layer with
 the pixels, which we hold in the variable `pi`, and `pico.output.draw.layer`
 draws it.
 
-Internally, `pico-atmos` keeps the texts, images and fonts that we pass as
+Internally, `atmos-pico` keeps the texts, images and fonts that we pass as
 strings, such that they are reused on subsequent redraws.
 We detail layers and their memory in [#Layers](#7-layers).
 
 ## 4. Positioning: Modes & Anchors
 
-In `pico-atmos`, we describe positions, dimensions, and shapes using standard
+In `atmos-pico`, we describe positions, dimensions, and shapes using standard
 Atmos tables with named fields (e.g., `w` for width).
 In addition to the usual fields, tables also describe
     a **mode** at index `0`, and
@@ -415,7 +415,7 @@ The **anchor** determines the reference point **within** shapes:
 ```
 
 When drawing, the anchor pins an inner shape position to the given coordinate.
-As shown in the previous examples, by default, `pico-atmos` uses the center
+As shown in the previous examples, by default, `atmos-pico` uses the center
 anchor `'C'`.
 
 Let's draw a pixel and three rectangles, all at the same position, but using
@@ -616,7 +616,7 @@ source, resulting in a scroll down.
 
 ## 6. Events
 
-In addition to output and drawing operations, `pico-atmos` also provides
+In addition to output and drawing operations, `atmos-pico` also provides
 functions to handle time and user input.
 
 ### 6.1. Delay
@@ -713,7 +713,7 @@ print(e2)   ;; nil, after 5000 if no keys pressed
 
 ### 6.3. Default Key Bindings
 
-By default, `pico-atmos` provides key bindings to zoom and scroll the current
+By default, `atmos-pico` provides key bindings to zoom and scroll the current
 view:
 
 - `CTRL` / `+`,`-`: zoom in / out
@@ -735,7 +735,7 @@ pico.input.loop()
 </td></tr>
 </table>
 
-The call to `pico.input.loop()` passes full control to `pico-atmos` to handle
+The call to `pico.input.loop()` passes full control to `atmos-pico` to handle
 events internally.
 
 Now, try `CTRL` pressing `+` to zoom in and the arrow keys to scroll around.
@@ -783,7 +783,7 @@ There are no layer names.
 
 **A layer lives as long as its value is referenced.**
 When the last reference to a layer goes away (e.g., its variable goes out of
-scope, or is assigned another value), `pico-atmos` releases the layer.
+scope, or is assigned another value), `atmos-pico` releases the layer.
 A plain `val` is enough to keep a layer alive.
 This rule has an important consequence, which we revisit in
 [#Hierarchy](#74-hierarchy): a layer that we attach to the screen must still
@@ -896,7 +896,7 @@ sub-layers, even if the variable `flag` goes away first.
 
 ### 7.4. Hierarchy
 
-Layers in `pico-atmos` can form a tree hierarchy which `pico.output.present`
+Layers in `atmos-pico` can form a tree hierarchy which `pico.output.present`
 traverses automatically to compose the full scene onto the screen.
 
 When creating a new layer, we can pass an `up` layer to become its parent:
@@ -974,7 +974,7 @@ are alive.
 Layers, fonts, and sounds are memory resources that require a mechanism for
 consistent allocations and matching deallocations.
 
-In `pico-atmos`, these resources are values of the language, and follow its
+In `atmos-pico`, these resources are values of the language, and follow its
 memory management: **a resource is released when its value is no longer
 referenced**.
 There are no explicit scopes to open and close.
@@ -1043,7 +1043,7 @@ In the example, the loop represents a continuous, possibly infinite, sequence
 of scenes, each with its own text.
 
 However, `pico.output.draw.text` allocates implicitly: like for images,
-`pico-atmos` keeps a texture for each distinct text until `pico.close()`.
+`atmos-pico` keeps a texture for each distinct text until `pico.close()`.
 This is fine for constant texts, but not for texts that keep changing, such as
 clocks and counters, which would accumulate over time.
 
@@ -1072,7 +1072,7 @@ immediately visible on the screen.
 However, to keep visual objects in perfect sync, most games and non-trivial
 applications require to draw them all simultaneously on every frame.
 
-For this reason, `pico-atmos` supports an expert mode that buffers drawing
+For this reason, `atmos-pico` supports an expert mode that buffers drawing
 operations until an explicit call to `pico.output.present`, which updates the
 screen with all objects at once:
 
@@ -1116,7 +1116,7 @@ These applications follow the structure of a continuous "main loop":
     redraw the whole scene (a frame), and
     repeat at a given *FPS rate* (frames per second).
 
-This is what a main loop in `pico-atmos` looks like:
+This is what a main loop in `atmos-pico` looks like:
 
 ```
 ;; (this is just a sketch - do not execute)
@@ -1170,7 +1170,7 @@ The complete source code is [here](rects.atm) (`~50` lines of code).
 Run the program:
 
 ```
-$ ../pico-atmos rects.atm
+$ ../atmos-pico rects.atm
 ```
 
 Now, let's discuss the implementation:
@@ -1260,7 +1260,7 @@ The complete source code is [here](anims.atm) (`~90` lines of code).
 Run the program:
 
 ```
-$ ../pico-atmos anims.atm
+$ ../atmos-pico anims.atm
 ```
 
 Now, let's discuss the implementation.
@@ -1341,11 +1341,11 @@ returns the appropriate layer of `frames`.
 ### 8.4. Reactive Mode
 
 The main loops of the previous sections all have the same structure, which
-`pico-atmos` can also provide by itself.
+`atmos-pico` can also provide by itself.
 
 Atmos is a reactive language, in which tasks `await` events.
-When the main body of a program awaits while `pico-atmos` is open, the
-program runs inside the main loop of `pico-atmos`, which emits the events to
+When the main body of a program awaits while `atmos-pico` is open, the
+program runs inside the main loop of `atmos-pico`, which emits the events to
 the program.
 On each frame, the loop emits, in this order:
 
@@ -1393,7 +1393,7 @@ Instead, the three lines of execution of the `par :any` run concurrently:
 - The second awakes every `100ms` to update the position of the square.
 - The third awaits the key `Escape`.
   When it terminates, the `par :any` aborts the other two, the program
-  reaches its end, and so does the loop of `pico-atmos`.
+  reaches its end, and so does the loop of `atmos-pico`.
 
 The loop also terminates when we close the window: it emits `:quit` and then
 aborts the program.
@@ -1503,7 +1503,7 @@ print(pico.vs.rect.rect (
 Here, we compare the whole world with a centered `50%` region of the window,
 which must overlap since the world is inside the window by default.
 
-For the sake of completion, `pico-atmos` also provides `pico.vs.pos.pos` and
+For the sake of completion, `atmos-pico` also provides `pico.vs.pos.pos` and
 `pico.vs.rect.pos`.
 
 ### 9.3. Nesting Rects
@@ -1529,7 +1529,7 @@ With `anchor='NW'` in the child, the result is exactly `0.25` and `0.75`.
 Nesting is useful, for instance, to check mouse collisions against shapes drawn
 inside shapes inside layers.
 
-For the sake of completion, `pico-atmos` also provides `pico.in.rect` and
+For the sake of completion, `atmos-pico` also provides `pico.in.rect` and
 `pico.in.dim`.
 
 ## 10. Extras

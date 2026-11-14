@@ -18,7 +18,7 @@ sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf
 # Run
 
 ```
-ATMOS=/path/to/atmos ../../pico-atmos main.atm
+ATMOS=/path/to/atmos ../../atmos-pico main.atm
 ```
 
 # Instructions

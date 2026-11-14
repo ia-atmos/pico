@@ -2,7 +2,7 @@
 ;; Two pixels on a 10x10 screen: one follows the mouse, the other responds to
 ;; the arrow keys (guide.md, section 8.2).
 ;;
-;;      pico-atmos rects.atm
+;;      atmos-pico rects.atm
 
 pico.set.window [ title="2x Rects" ]
 

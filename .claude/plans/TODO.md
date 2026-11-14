@@ -33,7 +33,7 @@ Last update: 2026-11-13 (after the second batch of binding changes).
    native literal could not fail; the compiler now supports it
    (`st = a_error(..)`). Rewrite in the style of `lib/sdl.atm`, or keep.
 7. **Tests of the games with `test { }` blocks.** Reported to the
-   compiler session: needs `-t` through `pico-atmos`, and a way to
+   compiler session: needs `-t` through `atmos-pico`, and a way to
    script a run (frames, input, screenshots) from inside the program.
 8. **Documentation site and releases of this repository.** The version
    branches were deleted here; `c/README.md` (badge, versions, Doxygen)
@@ -150,7 +150,7 @@ Changes made on judgement during the port, reported once, with no answer.
     per frame, with a grid in plain Atmos filtering near pairs; a drop
     may travel up to one frame further before reacting. Boom pushes stay
     per clock piece.
-11. **`PICO_ROOT`** is exported by `pico-atmos`; `$name` inside a
+11. **`PICO_ROOT`** is exported by `atmos-pico`; `$name` inside a
     `:prelude` block is Atmos interpolation, even in a C comment.
 12. **Runtime behaviour to keep in mind**: `loop us on :clock` wakes at
     every piece of time (one per pending timer instant), not once per

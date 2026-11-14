@@ -1,7 +1,7 @@
 ;;
 ;; ts.atm — Entity functions for pico-storm
 ;;
-;; Ported from ceu-sdl-storm (Céu + SDL) to pico-atmos.
+;; Ported from ceu-sdl-storm (Céu + SDL) to atmos-pico.
 ;; Original by Psyny: https://github.com/psyny
 ;;
 

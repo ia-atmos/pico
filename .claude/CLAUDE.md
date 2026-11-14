@@ -29,7 +29,7 @@ gcc /path/to/program.c -I c/src -L c/src -lpico-sdl \
 The binding is `pico.atm`; the compiler is https://github.com/ia-atmos/lang.
 
 ```bash
-ATMOS=/path/to/atmos ./pico-atmos path/to/program.atm
+ATMOS=/path/to/atmos ./atmos-pico path/to/program.atm
 ```
 
 ## Tests

@@ -3,12 +3,12 @@
 VERSION=v0.8
 
 if [ "$1" = --version ]; then
-    echo pico-atmos $VERSION
+    echo atmos-pico $VERSION
     exit 0
 fi
 
 if [ $# -eq 0 ] || [ "$1" = --help ]; then
-    echo "Usage: pico-atmos [options] <file.atm> [args]"
+    echo "Usage: atmos-pico [options] <file.atm> [args]"
     echo ""
     echo "Options:"
     echo "  --help       Show this help"
@@ -27,7 +27,7 @@ PICO=$(dirname "$(realpath "$0")")      # /x/y/pico
 ATMOS=${ATMOS:-atmos}
 
 if ! command -v "$ATMOS" >/dev/null 2>&1; then
-    echo "pico-atmos : compiler not found : $ATMOS (set ATMOS)" >&2
+    echo "atmos-pico : compiler not found : $ATMOS (set ATMOS)" >&2
     exit 1
 fi
 case "$ATMOS" in
@@ -35,7 +35,7 @@ case "$ATMOS" in
 esac
 
 if [ ! -f "$1" ]; then
-    echo "pico-atmos : file not found : $1" >&2
+    echo "atmos-pico : file not found : $1" >&2
     exit 1
 fi
 
@@ -45,7 +45,7 @@ shift
 
 case "$PICO/$DIR/$ATM" in
     *[\"\\]*)
-        echo "pico-atmos : invalid path : $DIR/$ATM" >&2
+        echo "atmos-pico : invalid path : $DIR/$ATM" >&2
         exit 1
         ;;
 esac
@@ -69,7 +69,7 @@ fi
 # the messages of the compiler and the traces of errors name the file of
 # the program. A program that also includes `pico.atm` is not affected:
 # a file is only included once.
-TMP=$(mktemp -d "${TMPDIR:-/tmp}/pico-atmos-XXXXXX") || exit 1
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/atmos-pico-XXXXXX") || exit 1
 trap 'rm -rf "$TMP"' EXIT
 trap 'exit 130' INT HUP TERM
 printf 'include "%s"\ninclude "%s"\n' "$PICO/pico.atm" "$DIR/$ATM" \
